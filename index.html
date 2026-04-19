@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Lynne's Luxe Slots Deluxe - a premium slot machine with bonus rounds, colorful graphics, and big win effects.">
+  <title>Lynne's Luxe Slots Deluxe</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="aurora-bg" aria-hidden="true"></div>
+
+  <main class="app-shell">
+    <header class="hero-banner">
+      <p class="hero-kicker">Made With Love For Mom</p>
+      <h1>Lynne's Luxe Slots Deluxe</h1>
+      <p class="hero-copy">Premium neon reels, colorful wins, free spins, diamond bonuses, and celebratory explosions.</p>
+    </header>
+
+    <section class="game-grid">
+      <aside class="panel payout-panel" aria-labelledby="payout-heading">
+        <div class="panel-heading">
+          <h2 id="payout-heading">Payout Table</h2>
+          <p>The center row is the winning line.</p>
+        </div>
+
+        <ul class="payout-list">
+          <li><span>🍒 Cherry x3</span><strong>2x bet</strong></li>
+          <li><span>🍋 Lemon x3</span><strong>3x bet</strong></li>
+          <li><span>🔔 Bell x3</span><strong>5x bet</strong></li>
+          <li><span>💎 Diamond x3</span><strong>10x bet + Diamond Rush</strong></li>
+          <li><span>7 Seven x3</span><strong>20x bet + Free Spins</strong></li>
+          <li><span>Any 2 matching</span><strong>1x bet</strong></li>
+        </ul>
+
+        <div class="bonus-card">
+          <h3>Bonus Rounds</h3>
+          <p><strong>Diamond Rush:</strong> 3 diamonds gives 3 glowing prize picks.</p>
+          <p><strong>Lynne's Lucky Free Spins:</strong> 3 sevens gives 3 free spins with double payouts.</p>
+        </div>
+      </aside>
+
+      <section class="panel machine-panel">
+        <div class="status-row">
+          <div class="status-card">
+            <span class="status-label">Balance</span>
+            <strong id="balance" class="status-value">1000</strong>
+          </div>
+
+          <div class="status-card">
+            <span class="status-label">Bet</span>
+            <strong id="bet" class="status-value">10</strong>
+          </div>
+
+          <div class="status-card">
+            <span class="status-label">Free Spins</span>
+            <strong id="free-spins" class="status-value">0</strong>
+          </div>
+        </div>
+
+        <section id="machine" class="machine">
+          <div class="marquee" aria-hidden="true">
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+
+          <div class="machine-badge">LYNNE</div>
+
+          <div id="effects-layer" class="effects-layer" aria-hidden="true"></div>
+
+          <div class="reels-frame" aria-live="polite" aria-label="Three slot machine reels">
+            <div class="payline"></div>
+
+            <div class="reel-window">
+              <div id="reel-0" class="reel-strip"></div>
+            </div>
+
+            <div class="reel-window">
+              <div id="reel-1" class="reel-strip"></div>
+            </div>
+
+            <div class="reel-window">
+              <div id="reel-2" class="reel-strip"></div>
+            </div>
+          </div>
+
+          <div class="controls">
+            <button id="bet-down" class="control-button" type="button" aria-label="Lower bet">- Bet</button>
+            <button id="bet-up" class="control-button" type="button" aria-label="Raise bet">+ Bet</button>
+            <button id="spin-button" class="spin-button" type="button">Spin</button>
+            <button id="reset-button" class="reset-button" type="button">Reset</button>
+          </div>
+
+          <div id="message" class="message-box" role="status">Welcome to Lynne's Luxe Slots Deluxe. Press Spin when you are ready.</div>
+        </section>
+      </section>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
