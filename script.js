@@ -10,6 +10,7 @@ document.addEventListener("DOMContentLoaded", function () {
   const BIG_WIN_MULTIPLIER = 10;
   const FREE_SPIN_COUNT = 3;
   const FREE_SPIN_MULTIPLIER = 2;
+  const STORY_LOG_LIMIT = 6;
 
   const symbols = [
     { id: "cherry", name: "Cherry", icon: "🍒", weight: 32, multiplier: 2 },
@@ -17,6 +18,69 @@ document.addEventListener("DOMContentLoaded", function () {
     { id: "bell", name: "Bell", icon: "🔔", weight: 20, multiplier: 5 },
     { id: "diamond", name: "Diamond", icon: "💎", weight: 12, multiplier: 10 },
     { id: "seven", name: "Seven", icon: "7", weight: 8, multiplier: 20 },
+  ];
+
+  const localThemeStages = [
+    {
+      themeName: "Velvet Starlight Lounge",
+      caption: "Soft gold bulbs and calm midnight velvet give the reels a rich, gentle opening glow.",
+      palette: {
+        accent: "#ffcf63",
+        accentSoft: "#ffe6a8",
+        glow: "#54e7ff",
+        glowSoft: "#c3f7ff",
+        shadow: "#4b2f76",
+        surface: "#251837",
+      },
+    },
+    {
+      themeName: "Golden Lantern Garden",
+      caption: "Warm garden lanterns and ribbon-soft lights drift around the reels like patient good luck.",
+      palette: {
+        accent: "#ffbb6b",
+        accentSoft: "#ffe3bc",
+        glow: "#76d9ff",
+        glowSoft: "#c9f2ff",
+        shadow: "#6f2f57",
+        surface: "#2c1a3b",
+      },
+    },
+    {
+      themeName: "Rose Quartz Bonus Hall",
+      caption: "The room turns softer and sweeter, with rosy shimmer and playful little jackpot sparks.",
+      palette: {
+        accent: "#ff98c3",
+        accentSoft: "#ffd9ea",
+        glow: "#85ffd9",
+        glowSoft: "#d2fff2",
+        shadow: "#4a2b71",
+        surface: "#27193a",
+      },
+    },
+    {
+      themeName: "Sunset Ribbon Vault",
+      caption: "Peach-gold ribbons, velvet shadows, and richer sparkle make each bonus feel more dramatic.",
+      palette: {
+        accent: "#ffd16f",
+        accentSoft: "#fff0c8",
+        glow: "#8fd8ff",
+        glowSoft: "#dff4ff",
+        shadow: "#7d2e4b",
+        surface: "#301c3b",
+      },
+    },
+    {
+      themeName: "Diamond Cloud Jubilee",
+      caption: "Everything opens into a brighter celebration world with cloudlike shimmer and premium glow.",
+      palette: {
+        accent: "#fff3cf",
+        accentSoft: "#ffffff",
+        glow: "#8ffff5",
+        glowSoft: "#e0fffb",
+        shadow: "#6b3a81",
+        surface: "#261634",
+      },
+    },
   ];
 
   const symbolMap = Object.fromEntries(symbols.map(function (symbol) {
@@ -32,14 +96,34 @@ document.addEventListener("DOMContentLoaded", function () {
     bet: DEFAULT_BET,
     freeSpins: 0,
     spinning: false,
+    worldStage: 1,
+    soundEnabled: true,
+    themeName: localThemeStages[0].themeName,
+    currentThemeImage: "",
+    themeCaption: localThemeStages[0].caption,
+    themeSource: "local",
+    bonusMoments: 0,
   };
 
   const balanceEl = document.getElementById("balance");
   const betEl = document.getElementById("bet");
   const freeSpinsEl = document.getElementById("free-spins");
+  const worldStageEl = document.getElementById("world-stage");
   const messageEl = document.getElementById("message");
   const machineEl = document.getElementById("machine");
   const effectsLayerEl = document.getElementById("effects-layer");
+  const themeSurfaceEl = document.getElementById("theme-surface");
+  const themePreviewEl = document.getElementById("theme-preview");
+  const themeNameEl = document.getElementById("theme-name");
+  const themeCaptionEl = document.getElementById("theme-caption");
+  const storyOutputEl = document.getElementById("story-output");
+  const storyLogEl = document.getElementById("story-log");
+  const aiStatusEl = document.getElementById("ai-status");
+  const themeSourceEl = document.getElementById("theme-source");
+  const themePromptEl = document.getElementById("theme-prompt");
+  const soundButton = document.getElementById("sound-button");
+  const themeButton = document.getElementById("theme-button");
+  const guideButton = document.getElementById("guide-button");
   const spinButton = document.getElementById("spin-button");
   const resetButton = document.getElementById("reset-button");
   const betDownButton = document.getElementById("bet-down");
@@ -49,6 +133,70 @@ document.addEventListener("DOMContentLoaded", function () {
     document.getElementById("reel-1"),
     document.getElementById("reel-2"),
   ];
+
+  const sound = {
+    context: null,
+    ensureContext: function () {
+      if (!state.soundEnabled) {
+        return null;
+      }
+
+      if (!this.context) {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) {
+          return null;
+        }
+        this.context = new AudioContextClass();
+      }
+
+      if (this.context.state === "suspended") {
+        this.context.resume().catch(function () {});
+      }
+
+      return this.context;
+    },
+    tone: function (frequency, duration, type, gain, delaySeconds) {
+      const context = this.ensureContext();
+      if (!context) {
+        return;
+      }
+
+      const oscillator = context.createOscillator();
+      const gainNode = context.createGain();
+      const startTime = context.currentTime + (delaySeconds || 0);
+
+      oscillator.type = type || "sine";
+      oscillator.frequency.value = frequency;
+      gainNode.gain.value = gain || 0.06;
+
+      oscillator.connect(gainNode);
+      gainNode.connect(context.destination);
+      gainNode.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+      oscillator.start(startTime);
+      oscillator.stop(startTime + duration);
+    },
+    click: function () {
+      this.tone(340, 0.08, "triangle", 0.04, 0);
+    },
+    reelStop: function () {
+      this.tone(150, 0.12, "sine", 0.06, 0);
+    },
+    smallWin: function () {
+      this.tone(392, 0.14, "sine", 0.06, 0);
+      this.tone(523, 0.16, "sine", 0.05, 0.08);
+    },
+    bigWin: function () {
+      this.tone(392, 0.14, "sine", 0.06, 0);
+      this.tone(523, 0.16, "sine", 0.06, 0.08);
+      this.tone(659, 0.2, "sine", 0.06, 0.16);
+      this.tone(783, 0.24, "triangle", 0.05, 0.24);
+    },
+    bonus: function () {
+      this.tone(330, 0.16, "triangle", 0.05, 0);
+      this.tone(494, 0.18, "triangle", 0.05, 0.08);
+      this.tone(659, 0.2, "triangle", 0.05, 0.18);
+    },
+  };
 
   function formatNumber(value) {
     return value.toLocaleString("en-US");
@@ -123,6 +271,30 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   }
 
+  function addStoryMoment(text) {
+    const storyItem = document.createElement("li");
+    storyItem.textContent = text;
+    storyLogEl.prepend(storyItem);
+
+    while (storyLogEl.children.length > STORY_LOG_LIMIT) {
+      storyLogEl.removeChild(storyLogEl.lastElementChild);
+    }
+  }
+
+  function setStoryOutput(text) {
+    storyOutputEl.textContent = text;
+    addStoryMoment(text);
+  }
+
+  function setAiStatus(text) {
+    aiStatusEl.textContent = text;
+  }
+
+  function setThemeSourceLabel(source) {
+    const prettySource = source === "openai" ? "Visual mode: live AI" : "Visual mode: local";
+    themeSourceEl.textContent = prettySource;
+  }
+
   function clearWinningHighlights() {
     document.querySelectorAll(".reel-symbol.is-winning").forEach(function (symbolEl) {
       symbolEl.classList.remove("is-winning");
@@ -183,13 +355,76 @@ document.addEventListener("DOMContentLoaded", function () {
     balanceEl.textContent = formatNumber(state.balance);
     betEl.textContent = formatNumber(state.bet);
     freeSpinsEl.textContent = formatNumber(state.freeSpins);
+    worldStageEl.textContent = formatNumber(state.worldStage);
+    soundButton.textContent = state.soundEnabled ? "Sound: On" : "Sound: Off";
+    soundButton.setAttribute("aria-pressed", state.soundEnabled ? "true" : "false");
 
     const hasCreditsForSpin = state.freeSpins > 0 || state.balance >= state.bet;
 
     spinButton.disabled = state.spinning || state.bet <= 0 || !hasCreditsForSpin;
     resetButton.disabled = state.spinning;
+    themeButton.disabled = state.spinning;
+    guideButton.disabled = state.spinning;
     betDownButton.disabled = state.spinning || state.bet <= BET_STEP;
     betUpButton.disabled = state.spinning || state.bet >= Math.min(MAX_BET, state.balance);
+  }
+
+  function buildLocalBackground(palette) {
+    return (
+      "radial-gradient(circle at top, " +
+      palette.accent +
+      "33, transparent 30%), " +
+      "radial-gradient(circle at bottom right, " +
+      palette.glow +
+      "26, transparent 35%), " +
+      "linear-gradient(180deg, " +
+      palette.surface +
+      ", #090b14 100%)"
+    );
+  }
+
+  function applyThemeData(themeData) {
+    const palette = themeData.palette || localThemeStages[state.worldStage - 1].palette;
+
+    document.documentElement.style.setProperty("--theme-accent", palette.accent);
+    document.documentElement.style.setProperty("--theme-accent-soft", palette.accentSoft);
+    document.documentElement.style.setProperty("--theme-glow", palette.glow);
+    document.documentElement.style.setProperty("--theme-glow-soft", palette.glowSoft);
+    document.documentElement.style.setProperty("--theme-shadow", palette.shadow);
+    document.documentElement.style.setProperty("--theme-surface", palette.surface);
+
+    state.themeName = themeData.themeName || state.themeName;
+    state.themeCaption = themeData.caption || state.themeCaption;
+    state.themeSource = themeData.source || "local";
+    state.currentThemeImage = themeData.backgroundImageDataUrl || "";
+
+    themeNameEl.textContent = state.themeName;
+    themeCaptionEl.textContent = state.themeCaption;
+    setThemeSourceLabel(state.themeSource);
+
+    if (state.currentThemeImage) {
+      const layeredImage =
+        "linear-gradient(180deg, rgba(6, 6, 12, 0.18), rgba(5, 7, 12, 0.7)), url('" +
+        state.currentThemeImage +
+        "')";
+      themeSurfaceEl.style.backgroundImage = layeredImage;
+      themePreviewEl.style.backgroundImage = layeredImage;
+    } else {
+      const localBackground = buildLocalBackground(palette);
+      themeSurfaceEl.style.backgroundImage = localBackground;
+      themePreviewEl.style.backgroundImage = localBackground;
+    }
+  }
+
+  function getLocalThemeData() {
+    const localTheme = localThemeStages[state.worldStage - 1];
+    return {
+      source: "local",
+      themeName: localTheme.themeName,
+      caption: localTheme.caption,
+      palette: localTheme.palette,
+      backgroundImageDataUrl: "",
+    };
   }
 
   function setIdleReels() {
@@ -316,6 +551,8 @@ document.addEventListener("DOMContentLoaded", function () {
           reelEl.style.transition = "transform " + settleTime + "ms cubic-bezier(0.15, 0.85, 0.24, 1)";
           reelEl.style.transform = "translateY(-" + finalPosition + "px)";
 
+          sound.reelStop();
+
           window.setTimeout(function () {
             reelEl.style.transition = "none";
             resolve();
@@ -323,6 +560,88 @@ document.addEventListener("DOMContentLoaded", function () {
         });
       },
     };
+  }
+
+  async function fetchJson(url, body) {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      throw new Error("Request failed");
+    }
+
+    return response.json();
+  }
+
+  async function requestGuideStory(eventType, extra) {
+    const payload = Object.assign(
+      {
+        eventType: eventType,
+        themeName: state.themeName,
+        balance: state.balance,
+        bet: state.bet,
+        bonusRound: null,
+        worldStage: state.worldStage,
+        recentOutcome: "The lounge is waiting for the next special moment.",
+      },
+      extra || {}
+    );
+
+    try {
+      const result = await fetchJson("/api/ai/story", payload);
+      setStoryOutput(result.message);
+      setAiStatus(result.source === "openai" ? "Lucky Guide is speaking live" : "Lucky Guide is using cozy fallback mode");
+    } catch (error) {
+      setStoryOutput("The room is still magical, even without the live guide. Try again after the server settles.");
+      setAiStatus("Guide request failed, using browser-safe fallback");
+    }
+  }
+
+  async function evolveTheme(reason) {
+    const localTheme = getLocalThemeData();
+    setAiStatus("Generating the next bonus world...");
+    themeButton.disabled = true;
+
+    try {
+      const result = await fetchJson("/api/ai/theme", {
+        themePrompt: themePromptEl.value,
+        worldStage: state.worldStage,
+        reason: reason,
+        currentTheme: state.themeName,
+      });
+
+      applyThemeData({
+        source: result.source || localTheme.source,
+        themeName: result.themeName || localTheme.themeName,
+        caption: result.caption || localTheme.caption,
+        palette: result.palette || localTheme.palette,
+        backgroundImageDataUrl: result.backgroundImageDataUrl || "",
+      });
+
+      setAiStatus(result.source === "openai" ? "AI art is live for this world stage" : "Using local cozy art fallback");
+    } catch (error) {
+      applyThemeData(localTheme);
+      setAiStatus("Theme request failed, using local cozy art");
+    } finally {
+      updateUi();
+    }
+  }
+
+  function maybeAdvanceWorldStage(reason) {
+    const shouldAdvance = state.worldStage < 5;
+
+    if (!shouldAdvance) {
+      return Promise.resolve();
+    }
+
+    state.worldStage += 1;
+    updateUi();
+    return evolveTheme(reason);
   }
 
   function getDiamondBonusMultiplier() {
@@ -333,11 +652,16 @@ document.addEventListener("DOMContentLoaded", function () {
   async function runDiamondBonus(baseBet) {
     let totalBonus = 0;
 
-    showMessage("Diamond Rush bonus! Lynne gets 3 glowing prize picks.", "bonus");
+    showMessage("Diamond Rush is open. Three glowing prize picks are waiting for Lynne.", "bonus");
     createExplosionBurst(["#9ef3ff", "#ffffff", "#54e7ff", "#8f72ff"]);
+    sound.bonus();
+    await requestGuideStory("diamond_bonus", {
+      bonusRound: "Diamond Rush",
+      recentOutcome: "Three diamonds woke up the premium Diamond Rush room.",
+    });
 
     for (let pickNumber = 1; pickNumber <= 3; pickNumber += 1) {
-      await delay(360);
+      await delay(420);
       const multiplier = getDiamondBonusMultiplier();
       const prize = baseBet * multiplier;
       totalBonus += prize;
@@ -356,11 +680,16 @@ document.addEventListener("DOMContentLoaded", function () {
     state.freeSpins += FREE_SPIN_COUNT;
     createExplosionBurst(["#ff4eb5", "#ffcf63", "#ffffff", "#ff7884"]);
     pulseBigWin();
+    sound.bonus();
     showMessage(
-      "Lynne's Lucky Free Spins! You earned " + FREE_SPIN_COUNT + " free spins with double payouts.",
+      "Lynne's Lucky Free Spins opened up. You earned " + FREE_SPIN_COUNT + " free spins with double payouts.",
       "bonus"
     );
-    await delay(500);
+    await requestGuideStory("free_spin_bonus", {
+      bonusRound: "Lucky Free Spins",
+      recentOutcome: "Three sevens opened a breezy double-payout free spin run.",
+    });
+    await delay(520);
   }
 
   async function handleBonusRounds(result, baseBet) {
@@ -368,10 +697,14 @@ document.addEventListener("DOMContentLoaded", function () {
 
     if (result.kind === "three" && result.symbolId === "diamond") {
       bonusWinnings += await runDiamondBonus(baseBet);
+      state.bonusMoments += 1;
+      await maybeAdvanceWorldStage("diamond bonus celebration");
     }
 
     if (result.kind === "three" && result.symbolId === "seven") {
       await runSevenBonus();
+      state.bonusMoments += 1;
+      await maybeAdvanceWorldStage("free spin storm");
     }
 
     return bonusWinnings;
@@ -381,6 +714,8 @@ document.addEventListener("DOMContentLoaded", function () {
     if (state.spinning) {
       return;
     }
+
+    sound.click();
 
     if (state.bet <= 0) {
       showMessage("Your bet is too low. Raise it to at least 10 credits.", "loss");
@@ -405,7 +740,7 @@ document.addEventListener("DOMContentLoaded", function () {
       showMessage("Free spin activated. This spin pays double on wins.", "bonus");
     } else {
       state.balance -= wager;
-      showMessage("Reels spinning for Lynne... good luck!", "");
+      showMessage("Reels spinning for Lynne... the room is gathering sparkle.", "");
     }
 
     updateUi();
@@ -437,12 +772,18 @@ document.addEventListener("DOMContentLoaded", function () {
       if (payoutMultiplier >= BIG_WIN_MULTIPLIER) {
         pulseBigWin();
         createExplosionBurst(["#ffcf63", "#ff4eb5", "#54e7ff", "#ffffff"]);
+        sound.bigWin();
         showMessage(
           "Big win! " + result.description + " paid " + formatNumber(baseWinnings) + " credits.",
           "big-win"
         );
+        await requestGuideStory("big_win", {
+          recentOutcome: result.description + " paid " + formatNumber(baseWinnings) + " credits.",
+        });
+        await maybeAdvanceWorldStage("big win evolution");
       } else {
         createExplosionBurst(["#5ff0af", "#54e7ff", "#ffcf63"]);
+        sound.smallWin();
         showMessage(
           "Nice win! " + result.description + " paid " + formatNumber(baseWinnings) + " credits.",
           "win"
@@ -453,7 +794,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
       if (bonusWinnings > 0) {
         showMessage(
-          "Total bonus winnings: " + formatNumber(bonusWinnings) + " credits on top of your regular win.",
+          "Bonus winnings added " + formatNumber(bonusWinnings) + " extra credits on top of the regular win.",
           "bonus"
         );
       }
@@ -476,8 +817,14 @@ document.addEventListener("DOMContentLoaded", function () {
       return;
     }
 
+    sound.click();
     state.bet += direction * BET_STEP;
     clampBet();
+    updateUi();
+  }
+
+  function toggleSound() {
+    state.soundEnabled = !state.soundEnabled;
     updateUi();
   }
 
@@ -486,25 +833,45 @@ document.addEventListener("DOMContentLoaded", function () {
       return;
     }
 
+    sound.click();
     state.balance = START_BALANCE;
     state.bet = DEFAULT_BET;
     state.freeSpins = 0;
+    state.worldStage = 1;
+    state.bonusMoments = 0;
     clearWinningHighlights();
     effectsLayerEl.innerHTML = "";
     clampBet();
+    applyThemeData(getLocalThemeData());
     setIdleReels();
-    showMessage("Game reset. Lynne is back to 1000 credits and ready for a fresh start.", "");
+    showMessage("Game reset. Lynne's lounge is calm again and ready for a fresh lucky run.", "");
+    setStoryOutput("The velvet room settled back into its opening glow. We can start a brand new story whenever you want.");
+    setAiStatus("World reset to stage 1");
     updateUi();
   }
 
   function init() {
     clampBet();
+    applyThemeData(getLocalThemeData());
     setIdleReels();
     updateUi();
-    showMessage("Welcome to Lynne's Luxe Slots Deluxe. Press Spin when you are ready.", "");
+    setStoryOutput("The room is settled into a velvet glow. When you are ready, I will help the world bloom.");
+    showMessage("Welcome to Lynne's AI Slot Deluxe. Let the room glow, then press Spin.", "");
+    setAiStatus("Server-safe mode is ready");
 
     spinButton.addEventListener("click", playSpin);
     resetButton.addEventListener("click", resetGame);
+    soundButton.addEventListener("click", toggleSound);
+    themeButton.addEventListener("click", function () {
+      sound.click();
+      evolveTheme("manual theme request from Lynne");
+    });
+    guideButton.addEventListener("click", function () {
+      sound.click();
+      requestGuideStory("guide", {
+        recentOutcome: "Lynne asked for a warm suggestion before the next set of spins.",
+      });
+    });
     betDownButton.addEventListener("click", function () {
       changeBet(-1);
     });

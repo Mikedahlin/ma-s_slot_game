@@ -3,107 +3,191 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Lynne's Luxe Slots Deluxe - a premium slot machine with bonus rounds, colorful graphics, and big win effects.">
-  <title>Lynne's Luxe Slots Deluxe</title>
+  <meta
+    name="description"
+    content="Lynne's AI Slot Deluxe - a premium cozy slot machine with evolving AI art, bonus rounds, and warm story moments."
+  >
+  <title>Lynne's AI Slot Deluxe</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div class="aurora-bg" aria-hidden="true"></div>
+  <div class="page-mist" aria-hidden="true"></div>
 
   <main class="app-shell">
     <header class="hero-banner">
-      <p class="hero-kicker">Made With Love For Mom</p>
-      <h1>Lynne's Luxe Slots Deluxe</h1>
-      <p class="hero-copy">Premium neon reels, colorful wins, free spins, diamond bonuses, and celebratory explosions.</p>
+      <p class="hero-kicker">Premium Cozy AI Slot Game</p>
+      <h1>Lynne's AI Slot Deluxe</h1>
+      <p class="hero-copy">
+        A warm magical slot lounge for Lynne with evolving AI story moments, dreamy bonus worlds,
+        glowing reels, and richer graphics every time the luck wakes up.
+      </p>
+
+      <div class="hero-tags" aria-label="Game features">
+        <span>AI Story Guide</span>
+        <span>Evolving Theme Art</span>
+        <span>Diamond Rush</span>
+        <span>Lucky Free Spins</span>
+      </div>
     </header>
 
-    <section class="game-grid">
-      <aside class="panel payout-panel" aria-labelledby="payout-heading">
-        <div class="panel-heading">
-          <h2 id="payout-heading">Payout Table</h2>
-          <p>The center row is the winning line.</p>
-        </div>
+    <section class="layout-grid">
+      <aside class="side-panel">
+        <section class="panel payout-panel" aria-labelledby="payout-heading">
+          <div class="panel-header">
+            <h2 id="payout-heading">Payout Table</h2>
+            <p>The glowing center line is the winning payline.</p>
+          </div>
 
-        <ul class="payout-list">
-          <li><span>🍒 Cherry x3</span><strong>2x bet</strong></li>
-          <li><span>🍋 Lemon x3</span><strong>3x bet</strong></li>
-          <li><span>🔔 Bell x3</span><strong>5x bet</strong></li>
-          <li><span>💎 Diamond x3</span><strong>10x bet + Diamond Rush</strong></li>
-          <li><span>7 Seven x3</span><strong>20x bet + Free Spins</strong></li>
-          <li><span>Any 2 matching</span><strong>1x bet</strong></li>
-        </ul>
+          <ul class="payout-list">
+            <li><span>Cherry x3</span><strong>2x bet</strong></li>
+            <li><span>Lemon x3</span><strong>3x bet</strong></li>
+            <li><span>Bell x3</span><strong>5x bet</strong></li>
+            <li><span>Diamond x3</span><strong>10x bet + Diamond Rush</strong></li>
+            <li><span>Seven x3</span><strong>20x bet + Free Spins</strong></li>
+            <li><span>Any 2 matching</span><strong>1x bet</strong></li>
+          </ul>
+        </section>
 
-        <div class="bonus-card">
-          <h3>Bonus Rounds</h3>
-          <p><strong>Diamond Rush:</strong> 3 diamonds gives 3 glowing prize picks.</p>
-          <p><strong>Lynne's Lucky Free Spins:</strong> 3 sevens gives 3 free spins with double payouts.</p>
-        </div>
+        <section class="panel ai-panel" aria-labelledby="ai-heading">
+          <div class="panel-header">
+            <h2 id="ai-heading">AI Dream Booth</h2>
+            <p>Give the room a visual mood and let the world grow around Lynne's wins.</p>
+          </div>
+
+          <label class="field-label" for="theme-prompt">Dream Theme</label>
+          <input
+            id="theme-prompt"
+            class="text-input"
+            type="text"
+            value="velvet starlight garden with moonlit jackpots"
+            placeholder="golden hour ribbon lounge with cozy fireworks"
+          >
+
+          <div class="ai-buttons">
+            <button id="theme-button" class="soft-button" type="button">Generate AI Theme</button>
+            <button id="guide-button" class="soft-button" type="button">Ask Lucky Guide</button>
+          </div>
+
+          <button id="sound-button" class="sound-button" type="button" aria-pressed="true">
+            Sound: On
+          </button>
+
+          <div class="status-pill-group">
+            <span id="ai-status" class="status-pill">Ready to evolve the world</span>
+            <span id="theme-source" class="status-pill">Visual mode: local</span>
+          </div>
+        </section>
       </aside>
 
-      <section class="panel machine-panel">
-        <div class="status-row">
-          <div class="status-card">
-            <span class="status-label">Balance</span>
-            <strong id="balance" class="status-value">1000</strong>
-          </div>
-
-          <div class="status-card">
-            <span class="status-label">Bet</span>
-            <strong id="bet" class="status-value">10</strong>
-          </div>
-
-          <div class="status-card">
-            <span class="status-label">Free Spins</span>
-            <strong id="free-spins" class="status-value">0</strong>
-          </div>
-        </div>
-
-        <section id="machine" class="machine">
-          <div class="marquee" aria-hidden="true">
-            <span></span>
-            <span></span>
-            <span></span>
-            <span></span>
-            <span></span>
-            <span></span>
-            <span></span>
-            <span></span>
-            <span></span>
-            <span></span>
-            <span></span>
-            <span></span>
-          </div>
-
-          <div class="machine-badge">LYNNE</div>
-
-          <div id="effects-layer" class="effects-layer" aria-hidden="true"></div>
-
-          <div class="reels-frame" aria-live="polite" aria-label="Three slot machine reels">
-            <div class="payline"></div>
-
-            <div class="reel-window">
-              <div id="reel-0" class="reel-strip"></div>
+      <section class="machine-column">
+        <section class="panel machine-panel">
+          <div class="status-grid">
+            <div class="status-card">
+              <span class="status-label">Balance</span>
+              <strong id="balance" class="status-value">1000</strong>
             </div>
 
-            <div class="reel-window">
-              <div id="reel-1" class="reel-strip"></div>
+            <div class="status-card">
+              <span class="status-label">Bet</span>
+              <strong id="bet" class="status-value">10</strong>
             </div>
 
-            <div class="reel-window">
-              <div id="reel-2" class="reel-strip"></div>
+            <div class="status-card">
+              <span class="status-label">Free Spins</span>
+              <strong id="free-spins" class="status-value">0</strong>
+            </div>
+
+            <div class="status-card">
+              <span class="status-label">World Stage</span>
+              <strong id="world-stage" class="status-value">1</strong>
             </div>
           </div>
 
-          <div class="controls">
-            <button id="bet-down" class="control-button" type="button" aria-label="Lower bet">- Bet</button>
-            <button id="bet-up" class="control-button" type="button" aria-label="Raise bet">+ Bet</button>
-            <button id="spin-button" class="spin-button" type="button">Spin</button>
-            <button id="reset-button" class="reset-button" type="button">Reset</button>
-          </div>
+          <section id="machine" class="machine">
+            <div class="marquee" aria-hidden="true">
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
 
-          <div id="message" class="message-box" role="status">Welcome to Lynne's Luxe Slots Deluxe. Press Spin when you are ready.</div>
+            <div class="machine-badge">LYNNE</div>
+
+            <div id="theme-surface" class="theme-surface" aria-hidden="true"></div>
+            <div id="effects-layer" class="effects-layer" aria-hidden="true"></div>
+
+            <div class="reels-frame" aria-live="polite" aria-label="Three slot machine reels">
+              <div class="payline"></div>
+
+              <div class="reel-window">
+                <div id="reel-0" class="reel-strip"></div>
+              </div>
+
+              <div class="reel-window">
+                <div id="reel-1" class="reel-strip"></div>
+              </div>
+
+              <div class="reel-window">
+                <div id="reel-2" class="reel-strip"></div>
+              </div>
+            </div>
+
+            <div class="controls">
+              <button id="bet-down" class="control-button" type="button" aria-label="Lower bet">- Bet</button>
+              <button id="bet-up" class="control-button" type="button" aria-label="Raise bet">+ Bet</button>
+              <button id="spin-button" class="spin-button" type="button">Spin</button>
+              <button id="reset-button" class="reset-button" type="button">Reset</button>
+            </div>
+
+            <div id="message" class="message-box" role="status">
+              Welcome to Lynne's AI Slot Deluxe. Let the room glow, then press Spin.
+            </div>
+          </section>
         </section>
       </section>
+
+      <aside class="story-column">
+        <section class="panel story-panel" aria-labelledby="story-heading">
+          <div class="panel-header">
+            <h2 id="story-heading">Lucky Guide</h2>
+            <p>A warm little narrator who reacts to Lynne's bonus moments and world changes.</p>
+          </div>
+
+          <div class="guide-card">
+            <div class="guide-avatar" aria-hidden="true">★</div>
+            <div>
+              <p class="guide-label">Current Whisper</p>
+              <p id="story-output" class="story-output">
+                The room is settled into a velvet glow. When you are ready, I will help the world bloom.
+              </p>
+            </div>
+          </div>
+
+          <div class="theme-preview-wrap">
+            <p class="guide-label">Current Bonus World</p>
+            <div id="theme-preview" class="theme-preview" aria-hidden="true"></div>
+            <h3 id="theme-name" class="theme-name">Velvet Starlight Lounge</h3>
+            <p id="theme-caption" class="theme-caption">
+              Soft gold lights, velvet shadows, and a calm premium sparkle drifting over the reels.
+            </p>
+          </div>
+
+          <div class="story-log-wrap">
+            <p class="guide-label">Recent Moments</p>
+            <ul id="story-log" class="story-log">
+              <li>The lounge opened in a calm velvet glow.</li>
+            </ul>
+          </div>
+        </section>
+      </aside>
     </section>
   </main>
 
