@@ -21,18 +21,32 @@ function normalizeModelChoice(value, fallback) {
     return fallback;
   }
 
-  const lowered = rawValue.toLowerCase();
+  const lowered = rawValue.toLowerCase().replace(/\s+/g, "");
 
   if (
     lowered === "gpt-3.5" ||
     lowered === "gpt-3.5-turbo" ||
     lowered === "gpt3.5" ||
-    lowered === "gpt3.5-turbo"
+    lowered === "gpt3.5-turbo" ||
+    lowered === "gpt-5.0-mini" ||
+    lowered === "gpt5.0-mini" ||
+    lowered === "gpt-5.0-minis" ||
+    lowered === "gpt5.0-minis" ||
+    lowered === "gpt-5-" ||
+    lowered === "gpt5-"
   ) {
     return fallback;
   }
 
-  return rawValue;
+  if (lowered === "gpt-5mini" || lowered === "gpt5mini") {
+    return "gpt-5-mini";
+  }
+
+  if (lowered === "gpt-5.0" || lowered === "gpt5.0") {
+    return "gpt-5";
+  }
+
+  return rawValue.trim();
 }
 
 const textModel = normalizeModelChoice(process.env.OPENAI_TEXT_MODEL, "gpt-5-mini");
@@ -118,6 +132,10 @@ function buildFallbackTheme({ themePrompt, worldStage, reason }) {
       "Local cozy mode is active. The world is shifting toward " +
       sourcePrompt +
       " while we wait for live AI art.",
+    storyWhisper:
+      "The room is still changing for you, Lynne. Even in local mode, the " +
+      sourcePrompt +
+      " world is waking up.",
     promptUsed:
       "Premium cozy slot lounge, " +
       sourcePrompt +
@@ -126,6 +144,28 @@ function buildFallbackTheme({ themePrompt, worldStage, reason }) {
     backgroundImageDataUrl: null,
     reason,
   };
+}
+
+function extractJsonObject(text) {
+  const source = String(text || "").trim();
+  if (!source) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(source);
+  } catch {
+    const match = source.match(/\{[\s\S]*\}/);
+    if (!match) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(match[0]);
+    } catch {
+      return null;
+    }
+  }
 }
 
 function titleCase(value) {
@@ -154,6 +194,8 @@ function buildFallbackStory(payload) {
       "Oh, that one landed beautifully. The whole room just leaned toward you, and I can feel another special bonus world opening soon.",
     diamond_bonus:
       "The diamonds are awake now. Pick with your heart, because this round feels rich, dramatic, and lucky.",
+    treasure_shelf:
+      "The bells opened a treasure shelf just for you. Choose the shelf that feels warmest, because that one usually hides the sweetest reward.",
     free_spin_bonus:
       "Those sevens brought in a breezy little jackpot storm. Free spins are the perfect time to let the magic stretch out.",
     theme_shift:
@@ -195,6 +237,65 @@ function buildThemeImagePrompt({ themePrompt, worldStage, reason, currentTheme }
   ].join(" ");
 }
 
+function buildThemeMetadataPrompt({ themePrompt, worldStage, reason, currentTheme }) {
+  const cleanPrompt = String(themePrompt || "").trim();
+  const basePrompt =
+    cleanPrompt.length > 0
+      ? cleanPrompt
+      : fallbackThemePrompts[(worldStage - 1) % fallbackThemePrompts.length];
+
+  return [
+    "Create a premium evolving slot-world theme for Lynne.",
+    "Return JSON only.",
+    "Keys: themeName, caption, storyWhisper, accent, accentSoft, glow, glowSoft, shadow, surface.",
+    "Use cozy, premium, warm casino fantasy language.",
+    "Caption under 28 words.",
+    "storyWhisper under 34 words.",
+    "All colors must be valid hex codes.",
+    "Current theme: " + (currentTheme || "Velvet Starlight Lounge") + ".",
+    "New theme direction: " + basePrompt + ".",
+    "World stage: " + worldStage + ".",
+    "Reason: " + reason + ".",
+  ].join(" ");
+}
+
+async function generateThemeMetadata(payload, fallbackTheme) {
+  if (!openai) {
+    return fallbackTheme;
+  }
+
+  try {
+    const response = await openai.responses.create({
+      model: textModel,
+      input: buildThemeMetadataPrompt(payload),
+    });
+
+    const parsed = extractJsonObject(response.output_text);
+    if (!parsed) {
+      return fallbackTheme;
+    }
+
+    return {
+      ...fallbackTheme,
+      source: "openai-text",
+      themeName: parsed.themeName || fallbackTheme.themeName,
+      caption: parsed.caption || fallbackTheme.caption,
+      storyWhisper: parsed.storyWhisper || fallbackTheme.storyWhisper,
+      palette: {
+        accent: parsed.accent || fallbackTheme.palette.accent,
+        accentSoft: parsed.accentSoft || fallbackTheme.palette.accentSoft,
+        glow: parsed.glow || fallbackTheme.palette.glow,
+        glowSoft: parsed.glowSoft || fallbackTheme.palette.glowSoft,
+        shadow: parsed.shadow || fallbackTheme.palette.shadow,
+        surface: parsed.surface || fallbackTheme.palette.surface,
+      },
+    };
+  } catch (error) {
+    console.error("AI theme metadata generation failed:", error);
+    return fallbackTheme;
+  }
+}
+
 async function generateStory(payload) {
   if (!openai) {
     return {
@@ -224,9 +325,10 @@ async function generateStory(payload) {
 
 async function generateTheme(payload) {
   const fallbackTheme = buildFallbackTheme(payload);
+  const themedResult = await generateThemeMetadata(payload, fallbackTheme);
 
   if (!openai) {
-    return fallbackTheme;
+    return themedResult;
   }
 
   try {
@@ -242,17 +344,18 @@ async function generateTheme(payload) {
     );
 
     return {
-      ...fallbackTheme,
-      source: generatedImage ? "openai" : "fallback",
-      caption:
-        "Live AI art is active. The world is evolving into a richer, dreamier bonus lounge for Lynne.",
+      ...themedResult,
+      source: generatedImage ? "openai-image" : themedResult.source,
+      caption: generatedImage
+        ? "Live AI art is active. The world is evolving into a richer, dreamier bonus lounge for Lynne."
+        : themedResult.caption,
       backgroundImageDataUrl: generatedImage
         ? "data:image/png;base64," + generatedImage.result
         : null,
     };
   } catch (error) {
     console.error("AI theme generation failed:", error);
-    return fallbackTheme;
+    return themedResult;
   }
 }
 

@@ -95,6 +95,8 @@ document.addEventListener("DOMContentLoaded", function () {
     balance: START_BALANCE,
     bet: DEFAULT_BET,
     freeSpins: 0,
+    freeSpinMultiplier: FREE_SPIN_MULTIPLIER,
+    freeSpinLabel: "Moonlight x2",
     spinning: false,
     worldStage: 1,
     soundEnabled: true,
@@ -121,6 +123,13 @@ document.addEventListener("DOMContentLoaded", function () {
   const aiStatusEl = document.getElementById("ai-status");
   const themeSourceEl = document.getElementById("theme-source");
   const themePromptEl = document.getElementById("theme-prompt");
+  const bonusOverlayEl = document.getElementById("bonus-overlay");
+  const bonusKickerEl = document.getElementById("bonus-kicker");
+  const bonusTitleEl = document.getElementById("bonus-title");
+  const bonusDescriptionEl = document.getElementById("bonus-description");
+  const bonusChoicesEl = document.getElementById("bonus-choices");
+  const bonusSummaryEl = document.getElementById("bonus-summary");
+  const bonusCloseButton = document.getElementById("bonus-close");
   const soundButton = document.getElementById("sound-button");
   const themeButton = document.getElementById("theme-button");
   const guideButton = document.getElementById("guide-button");
@@ -291,8 +300,157 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function setThemeSourceLabel(source) {
-    const prettySource = source === "openai" ? "Visual mode: live AI" : "Visual mode: local";
+    const sourceLabels = {
+      "openai-image": "Visual mode: live AI art",
+      "openai-text": "Visual mode: AI-designed palette",
+      fallback: "Visual mode: local fallback",
+      local: "Visual mode: local",
+    };
+    const prettySource = sourceLabels[source] || "Visual mode: local";
     themeSourceEl.textContent = prettySource;
+  }
+
+  function shuffle(items) {
+    const nextItems = items.slice();
+    for (let index = nextItems.length - 1; index > 0; index -= 1) {
+      const swapIndex = Math.floor(Math.random() * (index + 1));
+      const temp = nextItems[index];
+      nextItems[index] = nextItems[swapIndex];
+      nextItems[swapIndex] = temp;
+    }
+    return nextItems;
+  }
+
+  function setBonusOverlayVisible(isVisible) {
+    bonusOverlayEl.classList.toggle("hidden", !isVisible);
+    bonusOverlayEl.setAttribute("aria-hidden", isVisible ? "false" : "true");
+  }
+
+  function resetBonusOverlay() {
+    bonusChoicesEl.innerHTML = "";
+    bonusSummaryEl.textContent = "";
+    bonusCloseButton.classList.add("hidden");
+    bonusCloseButton.onclick = null;
+  }
+
+  function openBonusOverlay(config) {
+    resetBonusOverlay();
+    bonusKickerEl.textContent = config.kicker;
+    bonusTitleEl.textContent = config.title;
+    bonusDescriptionEl.textContent = config.description;
+    bonusSummaryEl.textContent = config.summary || "";
+    setBonusOverlayVisible(true);
+  }
+
+  function closeBonusOverlay() {
+    setBonusOverlayVisible(false);
+    resetBonusOverlay();
+  }
+
+  function waitForContinue(label) {
+    return new Promise(function (resolve) {
+      bonusCloseButton.textContent = label || "Continue";
+      bonusCloseButton.classList.remove("hidden");
+      bonusCloseButton.onclick = function () {
+        sound.click();
+        closeBonusOverlay();
+        resolve();
+      };
+    });
+  }
+
+  function presentSinglePickBonus(config) {
+    return new Promise(function (resolve) {
+      openBonusOverlay(config);
+
+      config.options.forEach(function (option) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "bonus-choice";
+        button.innerHTML =
+          '<span class="bonus-choice-title">' +
+          option.title +
+          '</span><span class="bonus-choice-subtitle">' +
+          option.subtitle +
+          '</span><span class="bonus-choice-reward">Tap to reveal</span>';
+
+        button.addEventListener("click", async function () {
+          sound.click();
+          config.options.forEach(function (otherOption) {
+            otherOption._button.disabled = true;
+            otherOption._button.classList.add("is-used");
+          });
+
+          button.classList.add("is-revealed");
+          button.querySelector(".bonus-choice-reward").textContent = option.rewardText;
+          bonusSummaryEl.textContent = option.summaryText;
+          bonusCloseButton.classList.remove("hidden");
+          bonusCloseButton.textContent = "Claim Reward";
+          bonusCloseButton.onclick = function () {
+            sound.click();
+            closeBonusOverlay();
+            resolve(option);
+          };
+        });
+
+        option._button = button;
+        bonusChoicesEl.appendChild(button);
+      });
+    });
+  }
+
+  function presentMultiPickBonus(config) {
+    return new Promise(function (resolve) {
+      openBonusOverlay(config);
+
+      const picks = [];
+      let pickedCount = 0;
+
+      config.options.forEach(function (option) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "bonus-choice";
+        button.innerHTML =
+          '<span class="bonus-choice-title">' +
+          option.title +
+          '</span><span class="bonus-choice-subtitle">' +
+          option.subtitle +
+          '</span><span class="bonus-choice-reward">Hidden reward</span>';
+
+        button.addEventListener("click", function () {
+          if (button.disabled || pickedCount >= config.pickCount) {
+            return;
+          }
+
+          sound.click();
+          pickedCount += 1;
+          button.disabled = true;
+          button.classList.add("is-revealed", "is-used");
+          button.querySelector(".bonus-choice-reward").textContent = option.rewardText;
+          picks.push(option);
+
+          bonusSummaryEl.textContent =
+            "Pick " +
+            pickedCount +
+            " of " +
+            config.pickCount +
+            " revealed. " +
+            config.summaryBuilder(picks);
+
+          if (pickedCount >= config.pickCount) {
+            bonusCloseButton.classList.remove("hidden");
+            bonusCloseButton.textContent = "Collect Vault Rewards";
+            bonusCloseButton.onclick = function () {
+              sound.click();
+              closeBonusOverlay();
+              resolve(picks);
+            };
+          }
+        });
+
+        bonusChoicesEl.appendChild(button);
+      });
+    });
   }
 
   function clearWinningHighlights() {
@@ -354,7 +512,10 @@ document.addEventListener("DOMContentLoaded", function () {
   function updateUi() {
     balanceEl.textContent = formatNumber(state.balance);
     betEl.textContent = formatNumber(state.bet);
-    freeSpinsEl.textContent = formatNumber(state.freeSpins);
+    freeSpinsEl.textContent =
+      state.freeSpins > 0
+        ? formatNumber(state.freeSpins) + " • x" + formatNumber(state.freeSpinMultiplier)
+        : "0";
     worldStageEl.textContent = formatNumber(state.worldStage);
     soundButton.textContent = state.soundEnabled ? "Sound: On" : "Sound: Off";
     soundButton.setAttribute("aria-pressed", state.soundEnabled ? "true" : "false");
@@ -623,7 +784,17 @@ document.addEventListener("DOMContentLoaded", function () {
         backgroundImageDataUrl: result.backgroundImageDataUrl || "",
       });
 
-      setAiStatus(result.source === "openai" ? "AI art is live for this world stage" : "Using local cozy art fallback");
+      if (result.storyWhisper) {
+        setStoryOutput(result.storyWhisper);
+      }
+
+      setAiStatus(
+        result.source === "openai-image"
+          ? "Live AI art is active for this world stage"
+          : result.source === "openai-text"
+            ? "AI designed a new world palette and story"
+            : "Using local cozy art fallback"
+      );
     } catch (error) {
       applyThemeData(localTheme);
       setAiStatus("Theme request failed, using local cozy art");
@@ -649,54 +820,209 @@ document.addEventListener("DOMContentLoaded", function () {
     return bonusOptions[Math.floor(Math.random() * bonusOptions.length)];
   }
 
+  function buildDiamondVaultRewards(baseBet) {
+    const stageBoost = state.worldStage;
+    return shuffle([
+      {
+        title: "Aurora Prism",
+        subtitle: "A warm glowing crystal",
+        rewardText: "+" + formatNumber(baseBet * (4 + stageBoost)) + " credits",
+        credits: baseBet * (4 + stageBoost),
+        stageBoost: 0,
+      },
+      {
+        title: "Ribbon Sapphire",
+        subtitle: "Velvet luck bundled inside",
+        rewardText: "+" + formatNumber(baseBet * (5 + stageBoost)) + " credits",
+        credits: baseBet * (5 + stageBoost),
+        stageBoost: 0,
+      },
+      {
+        title: "Moonfire Diamond",
+        subtitle: "A brighter premium cache",
+        rewardText: "+" + formatNumber(baseBet * (7 + stageBoost)) + " credits",
+        credits: baseBet * (7 + stageBoost),
+        stageBoost: 0,
+      },
+      {
+        title: "Sky Vault Key",
+        subtitle: "Unlocks a world-stage leap",
+        rewardText: "+" + formatNumber(baseBet * 3) + " credits and +1 world stage",
+        credits: baseBet * 3,
+        stageBoost: 1,
+      },
+      {
+        title: "Jackpot Facet",
+        subtitle: "The richest crystal in the room",
+        rewardText: "+" + formatNumber(baseBet * (10 + stageBoost)) + " credits",
+        credits: baseBet * (10 + stageBoost),
+        stageBoost: 0,
+      },
+      {
+        title: "Soft Gold Cluster",
+        subtitle: "A quiet but lovely bonus",
+        rewardText: "+" + formatNumber(baseBet * (3 + stageBoost)) + " credits",
+        credits: baseBet * (3 + stageBoost),
+        stageBoost: 0,
+      },
+    ]);
+  }
+
   async function runDiamondBonus(baseBet) {
     let totalBonus = 0;
+    let extraStageBoost = 0;
 
-    showMessage("Diamond Rush is open. Three glowing prize picks are waiting for Lynne.", "bonus");
+    showMessage("Diamond Vault is open. Pick 3 crystals and build your reward chest.", "bonus");
     createExplosionBurst(["#9ef3ff", "#ffffff", "#54e7ff", "#8f72ff"]);
     sound.bonus();
     await requestGuideStory("diamond_bonus", {
-      bonusRound: "Diamond Rush",
-      recentOutcome: "Three diamonds woke up the premium Diamond Rush room.",
+      bonusRound: "Diamond Vault",
+      recentOutcome: "Three diamonds woke up the premium Diamond Vault room.",
     });
 
-    for (let pickNumber = 1; pickNumber <= 3; pickNumber += 1) {
-      await delay(420);
-      const multiplier = getDiamondBonusMultiplier();
-      const prize = baseBet * multiplier;
-      totalBonus += prize;
-      createExplosionBurst(["#9ef3ff", "#ffcf63", "#ffffff"]);
-      showMessage(
-        "Diamond Rush pick " + pickNumber + " won " + formatNumber(prize) + " credits (" + multiplier + "x bet).",
-        "bonus"
-      );
-    }
+    const picks = await presentMultiPickBonus({
+      kicker: "Diamond Vault",
+      title: "Choose 3 crystal chambers",
+      description: "Each chamber hides a richer reward. Some crystals carry extra world energy.",
+      options: buildDiamondVaultRewards(baseBet),
+      pickCount: 3,
+      summaryBuilder: function (selectedOptions) {
+        const coinTotal = selectedOptions.reduce(function (sum, option) {
+          return sum + option.credits;
+        }, 0);
+        const stageTotal = selectedOptions.reduce(function (sum, option) {
+          return sum + option.stageBoost;
+        }, 0);
+        return "Vault total so far: " + formatNumber(coinTotal) + " credits" + (stageTotal ? " and +" + stageTotal + " stage." : ".");
+      },
+    });
+
+    picks.forEach(function (pick) {
+      totalBonus += pick.credits;
+      extraStageBoost += pick.stageBoost;
+    });
 
     state.balance += totalBonus;
-    return totalBonus;
+    return {
+      credits: totalBonus,
+      extraStageBoost: extraStageBoost,
+    };
   }
 
   async function runSevenBonus() {
-    state.freeSpins += FREE_SPIN_COUNT;
+    const freeSpinPackages = [
+      {
+        title: "Moonlight Drift",
+        subtitle: "Longer gentle run",
+        rewardText: "5 free spins at x2",
+        spins: 5,
+        multiplier: 2,
+        summaryText: "You chose a calm, steady climb: 5 free spins with a 2x win multiplier.",
+      },
+      {
+        title: "Starfall Burst",
+        subtitle: "Balanced premium run",
+        rewardText: "4 free spins at x3",
+        spins: 4,
+        multiplier: 3,
+        summaryText: "You chose the richer middle path: 4 free spins with a 3x win multiplier.",
+      },
+      {
+        title: "Jackpot Comet",
+        subtitle: "Short but explosive",
+        rewardText: "3 free spins at x4",
+        spins: 3,
+        multiplier: 4,
+        summaryText: "You chose the bold sprint: 3 free spins with a 4x win multiplier.",
+      },
+    ];
+
     createExplosionBurst(["#ff4eb5", "#ffcf63", "#ffffff", "#ff7884"]);
     pulseBigWin();
     sound.bonus();
+
+    await requestGuideStory("free_spin_bonus", {
+      bonusRound: "Starfall Spins",
+      recentOutcome: "Three sevens opened a brighter starfall free-spin room.",
+    });
+
+    const chosenPackage = await presentSinglePickBonus({
+      kicker: "Starfall Spins",
+      title: "Choose your free-spin path",
+      description: "Each path changes how powerful your next run feels. Pick the style that matches your mood.",
+      summary: "One pick only. Higher multipliers mean fewer spins, but bigger hits.",
+      options: freeSpinPackages,
+    });
+
+    state.freeSpins += chosenPackage.spins;
+    state.freeSpinMultiplier = chosenPackage.multiplier;
+    state.freeSpinLabel = chosenPackage.title;
+
     showMessage(
-      "Lynne's Lucky Free Spins opened up. You earned " + FREE_SPIN_COUNT + " free spins with double payouts.",
+      chosenPackage.summaryText,
       "bonus"
     );
-    await requestGuideStory("free_spin_bonus", {
-      bonusRound: "Lucky Free Spins",
-      recentOutcome: "Three sevens opened a breezy double-payout free spin run.",
+    await delay(320);
+
+    return chosenPackage;
+  }
+
+  async function runBellBonus(baseBet) {
+    createExplosionBurst(["#ffd892", "#ffcf63", "#ffffff"]);
+    sound.bonus();
+    await requestGuideStory("treasure_shelf", {
+      bonusRound: "Treasure Shelf",
+      recentOutcome: "Three bells opened a cozy Treasure Shelf bonus choice.",
     });
-    await delay(520);
+
+    const options = [
+      {
+        title: "Lantern Shelf",
+        subtitle: "Steady warm rewards",
+        rewardText: "+" + formatNumber(baseBet * 4) + " credits",
+        credits: baseBet * 4,
+        stageBoost: 0,
+        summaryText: "The lantern shelf poured out a calm, dependable prize.",
+      },
+      {
+        title: "Velvet Drawer",
+        subtitle: "Coins and richer mood",
+        rewardText: "+" + formatNumber(baseBet * 3) + " credits and +1 world stage",
+        credits: baseBet * 3,
+        stageBoost: 1,
+        summaryText: "The velvet drawer carried coins and a stronger world shift.",
+      },
+      {
+        title: "Golden Trinket Box",
+        subtitle: "Short but sweet jackpot pop",
+        rewardText: "+" + formatNumber(baseBet * 6) + " credits",
+        credits: baseBet * 6,
+        stageBoost: 0,
+        summaryText: "The golden trinket box snapped open with a richer burst of coins.",
+      },
+    ];
+
+    const reward = await presentSinglePickBonus({
+      kicker: "Treasure Shelf",
+      title: "Choose one shelf reward",
+      description: "The bells opened a warm little shelf of hidden treats. Pick the one that feels lucky.",
+      summary: "One pick only. Some shelves boost coins, one shelf advances the world.",
+      options: options,
+    });
+
+    state.balance += reward.credits;
+    showMessage(reward.summaryText, "bonus");
+    return reward;
   }
 
   async function handleBonusRounds(result, baseBet) {
     let bonusWinnings = 0;
+    let extraStageBoost = 0;
 
     if (result.kind === "three" && result.symbolId === "diamond") {
-      bonusWinnings += await runDiamondBonus(baseBet);
+      const diamondBonus = await runDiamondBonus(baseBet);
+      bonusWinnings += diamondBonus.credits;
+      extraStageBoost += diamondBonus.extraStageBoost;
       state.bonusMoments += 1;
       await maybeAdvanceWorldStage("diamond bonus celebration");
     }
@@ -705,6 +1031,19 @@ document.addEventListener("DOMContentLoaded", function () {
       await runSevenBonus();
       state.bonusMoments += 1;
       await maybeAdvanceWorldStage("free spin storm");
+    }
+
+    if (result.kind === "three" && result.symbolId === "bell") {
+      const bellBonus = await runBellBonus(baseBet);
+      bonusWinnings += bellBonus.credits;
+      extraStageBoost += bellBonus.stageBoost;
+      state.bonusMoments += 1;
+      await maybeAdvanceWorldStage("treasure shelf glow");
+    }
+
+    while (extraStageBoost > 0 && state.worldStage < 5) {
+      extraStageBoost -= 1;
+      await maybeAdvanceWorldStage("bonus room stage leap");
     }
 
     return bonusWinnings;
@@ -761,7 +1100,7 @@ document.addEventListener("DOMContentLoaded", function () {
     await reelControllers[2].stop();
 
     const result = evaluateResult(outcomeIds);
-    const payoutMultiplier = usingFreeSpin ? result.multiplier * FREE_SPIN_MULTIPLIER : result.multiplier;
+    const payoutMultiplier = usingFreeSpin ? result.multiplier * state.freeSpinMultiplier : result.multiplier;
     const baseWinnings = wager * payoutMultiplier;
     let bonusWinnings = 0;
 
@@ -807,6 +1146,11 @@ document.addEventListener("DOMContentLoaded", function () {
       );
     }
 
+    if (state.freeSpins === 0) {
+      state.freeSpinMultiplier = FREE_SPIN_MULTIPLIER;
+      state.freeSpinLabel = "Moonlight x2";
+    }
+
     clampBet();
     state.spinning = false;
     updateUi();
@@ -837,10 +1181,13 @@ document.addEventListener("DOMContentLoaded", function () {
     state.balance = START_BALANCE;
     state.bet = DEFAULT_BET;
     state.freeSpins = 0;
+    state.freeSpinMultiplier = FREE_SPIN_MULTIPLIER;
+    state.freeSpinLabel = "Moonlight x2";
     state.worldStage = 1;
     state.bonusMoments = 0;
     clearWinningHighlights();
     effectsLayerEl.innerHTML = "";
+    closeBonusOverlay();
     clampBet();
     applyThemeData(getLocalThemeData());
     setIdleReels();
