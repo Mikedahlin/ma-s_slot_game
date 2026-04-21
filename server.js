@@ -15,6 +15,32 @@ const openai = process.env.OPENAI_API_KEY
   ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
   : null;
 
+function normalizeModelChoice(value, fallback) {
+  const rawValue = String(value || "").trim();
+  if (!rawValue) {
+    return fallback;
+  }
+
+  const lowered = rawValue.toLowerCase();
+
+  if (
+    lowered === "gpt-3.5" ||
+    lowered === "gpt-3.5-turbo" ||
+    lowered === "gpt3.5" ||
+    lowered === "gpt3.5-turbo"
+  ) {
+    return fallback;
+  }
+
+  return rawValue;
+}
+
+const textModel = normalizeModelChoice(process.env.OPENAI_TEXT_MODEL, "gpt-5-mini");
+const imageControllerModel = normalizeModelChoice(
+  process.env.OPENAI_IMAGE_CONTROLLER_MODEL,
+  "gpt-5"
+);
+
 const fallbackThemePrompts = [
   "velvet starlight lounge",
   "rose-gold moon garden casino",
@@ -179,7 +205,7 @@ async function generateStory(payload) {
 
   try {
     const response = await openai.responses.create({
-      model: process.env.OPENAI_TEXT_MODEL || "gpt-5-mini",
+      model: textModel,
       input: buildStoryPrompt(payload),
     });
 
@@ -205,7 +231,7 @@ async function generateTheme(payload) {
 
   try {
     const response = await openai.responses.create({
-      model: process.env.OPENAI_IMAGE_CONTROLLER_MODEL || "gpt-5",
+      model: imageControllerModel,
       input: buildThemeImagePrompt(payload),
       tools: [{ type: "image_generation", action: "generate" }],
     });
@@ -261,4 +287,6 @@ app.use((request, response) => {
 
 app.listen(port, () => {
   console.log("Lynne's AI slot game is running at http://localhost:" + port);
+  console.log("Text model:", textModel);
+  console.log("Image controller model:", imageControllerModel);
 });
