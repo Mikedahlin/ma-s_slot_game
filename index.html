@@ -72,6 +72,21 @@
             Sound: On
           </button>
 
+          <button id="music-button" class="sound-button music-button" type="button" aria-pressed="false">
+            Music: Off
+          </button>
+
+          <label class="field-label checkbox-label">
+            <input id="voice-guide" class="checkbox-input" type="checkbox">
+            Voice guide (browser speech)
+          </label>
+
+          <p class="ai-note">
+            <strong>Static hosting:</strong> “Generate AI Theme” and “Ask Lucky Guide” use a
+            <em>smart offline engine</em> when no server is present. Add your own backend at
+            <code>/api/ai/theme</code> and <code>/api/ai/story</code> to plug in live models.
+          </p>
+
           <div class="status-pill-group">
             <span id="ai-status" class="status-pill">Ready to evolve the world</span>
             <span id="theme-source" class="status-pill">Visual mode: local</span>
@@ -152,6 +167,19 @@
             </div>
 
             <div id="bonus-overlay" class="bonus-overlay hidden" aria-hidden="true">
+              <video
+                id="bonus-video-bg"
+                class="bonus-video-bg"
+                playsinline
+                muted
+                loop
+                preload="metadata"
+                poster=""
+                aria-hidden="true"
+              >
+                <source src="https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.webm" type="video/webm">
+                <source src="https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4" type="video/mp4">
+              </video>
               <div class="bonus-modal">
                 <p id="bonus-kicker" class="bonus-kicker">Bonus Round</p>
                 <h3 id="bonus-title" class="bonus-title">Velvet Bonus Room</h3>

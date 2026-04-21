@@ -100,6 +100,9 @@ document.addEventListener("DOMContentLoaded", function () {
     spinning: false,
     worldStage: 1,
     soundEnabled: true,
+    musicEnabled: false,
+    musicPlaying: false,
+    voiceGuideEnabled: false,
     themeName: localThemeStages[0].themeName,
     currentThemeImage: "",
     themeCaption: localThemeStages[0].caption,
@@ -131,8 +134,11 @@ document.addEventListener("DOMContentLoaded", function () {
   const bonusSummaryEl = document.getElementById("bonus-summary");
   const bonusCloseButton = document.getElementById("bonus-close");
   const soundButton = document.getElementById("sound-button");
+  const musicButton = document.getElementById("music-button");
+  const voiceGuideEl = document.getElementById("voice-guide");
   const themeButton = document.getElementById("theme-button");
   const guideButton = document.getElementById("guide-button");
+  const bonusVideoBgEl = document.getElementById("bonus-video-bg");
   const spinButton = document.getElementById("spin-button");
   const resetButton = document.getElementById("reset-button");
   const betDownButton = document.getElementById("bet-down");
@@ -204,6 +210,66 @@ document.addEventListener("DOMContentLoaded", function () {
       this.tone(330, 0.16, "triangle", 0.05, 0);
       this.tone(494, 0.18, "triangle", 0.05, 0.08);
       this.tone(659, 0.2, "triangle", 0.05, 0.18);
+    },
+  };
+
+  /** Shared AudioContext for ambient music (works even when SFX toggle is off). */
+  function ensureAudioContext() {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) {
+      return null;
+    }
+    if (!sound.context) {
+      sound.context = new AudioContextClass();
+    }
+    if (sound.context.state === "suspended") {
+      sound.context.resume().catch(function () {});
+    }
+    return sound.context;
+  }
+
+  /** Soft sustained chord — no external files; ideal for GitHub Pages. */
+  const ambientMusic = {
+    nodes: [],
+    start: function () {
+      if (state.musicPlaying || !state.musicEnabled) {
+        return;
+      }
+      const ctx = ensureAudioContext();
+      if (!ctx) {
+        return;
+      }
+      const master = ctx.createGain();
+      master.gain.value = 0.032;
+      const freqs = [130.81, 164.81, 196.0];
+      freqs.forEach(function (freq, i) {
+        const osc = ctx.createOscillator();
+        osc.type = "sine";
+        osc.frequency.value = freq;
+        const g = ctx.createGain();
+        g.gain.value = 0.22 + i * 0.06;
+        osc.connect(g);
+        g.connect(master);
+        osc.start();
+        ambientMusic.nodes.push(osc, g);
+      });
+      master.connect(ctx.destination);
+      ambientMusic.nodes.push(master);
+      state.musicPlaying = true;
+    },
+    stop: function () {
+      ambientMusic.nodes.forEach(function (node) {
+        try {
+          if (typeof node.stop === "function") {
+            node.stop();
+          }
+          node.disconnect();
+        } catch (error) {
+          /* ignore */
+        }
+      });
+      ambientMusic.nodes = [];
+      state.musicPlaying = false;
     },
   };
 
@@ -293,6 +359,13 @@ document.addEventListener("DOMContentLoaded", function () {
   function setStoryOutput(text) {
     storyOutputEl.textContent = text;
     addStoryMoment(text);
+    if (voiceGuideEl && voiceGuideEl.checked && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+      const line = new SpeechSynthesisUtterance(text);
+      line.rate = 0.96;
+      line.pitch = 1.05;
+      window.speechSynthesis.speak(line);
+    }
   }
 
   function setAiStatus(text) {
@@ -303,6 +376,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const sourceLabels = {
       "openai-image": "Visual mode: live AI art",
       "openai-text": "Visual mode: AI-designed palette",
+      "local-ai": "Visual mode: offline dream AI",
       fallback: "Visual mode: local fallback",
       local: "Visual mode: local",
     };
@@ -324,6 +398,14 @@ document.addEventListener("DOMContentLoaded", function () {
   function setBonusOverlayVisible(isVisible) {
     bonusOverlayEl.classList.toggle("hidden", !isVisible);
     bonusOverlayEl.setAttribute("aria-hidden", isVisible ? "false" : "true");
+    if (bonusVideoBgEl) {
+      if (isVisible) {
+        bonusVideoBgEl.play().catch(function () {});
+      } else {
+        bonusVideoBgEl.pause();
+        bonusVideoBgEl.currentTime = 0;
+      }
+    }
   }
 
   function resetBonusOverlay() {
@@ -520,6 +602,11 @@ document.addEventListener("DOMContentLoaded", function () {
     soundButton.textContent = state.soundEnabled ? "Sound: On" : "Sound: Off";
     soundButton.setAttribute("aria-pressed", state.soundEnabled ? "true" : "false");
 
+    if (musicButton) {
+      musicButton.textContent = state.musicEnabled ? "Music: On" : "Music: Off";
+      musicButton.setAttribute("aria-pressed", state.musicEnabled ? "true" : "false");
+    }
+
     const hasCreditsForSpin = state.freeSpins > 0 || state.balance >= state.bet;
 
     spinButton.disabled = state.spinning || state.bet <= 0 || !hasCreditsForSpin;
@@ -586,6 +673,124 @@ document.addEventListener("DOMContentLoaded", function () {
       palette: localTheme.palette,
       backgroundImageDataUrl: "",
     };
+  }
+
+  /**
+   * Offline “AI” theme: interprets the dream prompt with keyword moods (no network).
+   * When a real backend exists at /api/ai/theme, that route takes precedence.
+   */
+  function localEvolveThemeFromPrompt(prompt) {
+    const text = (prompt || "").toLowerCase();
+    const base = getLocalThemeData();
+    let themeName = base.themeName;
+    let caption = base.caption;
+    let palette = base.palette;
+
+    if (/gold|sun|amber|lantern|honey/.test(text)) {
+      themeName = "Gilded Sun Vault";
+      caption = "Warm gold light spills across the reels like honey on velvet.";
+      palette = {
+        accent: "#ffcf63",
+        accentSoft: "#ffe6a8",
+        glow: "#54e7ff",
+        glowSoft: "#c3f7ff",
+        shadow: "#4b2f76",
+        surface: "#2a1830",
+      };
+    } else if (/moon|night|velvet|midnight|noir/.test(text)) {
+      themeName = "Midnight Velvet Observatory";
+      caption = "Moonlit ribbons and soft hush shadows wrap each spin in calm drama.";
+      palette = {
+        accent: "#ff6bc4",
+        accentSoft: "#ffd9ea",
+        glow: "#85ffd9",
+        glowSoft: "#d2fff2",
+        shadow: "#4a2b71",
+        surface: "#27193a",
+      };
+    } else if (/ocean|aqua|blue|teal|tide/.test(text)) {
+      themeName = "Tidal Glass Atrium";
+      caption = "Cool aquamarine shimmer and glass-bright reflections drift with the reels.";
+      palette = {
+        accent: "#7ee8ff",
+        accentSoft: "#d2fbff",
+        glow: "#b388ff",
+        glowSoft: "#e8d4ff",
+        shadow: "#1a3a4a",
+        surface: "#152228",
+      };
+    } else if (/garden|rose|flower|bloom|petal/.test(text)) {
+      themeName = "Rose Quartz Pavilion";
+      caption = "Petals of soft pink light and gentle sparkle embrace every lucky moment.";
+      palette = {
+        accent: "#ff98c3",
+        accentSoft: "#ffd9ea",
+        glow: "#85ffd9",
+        glowSoft: "#d2fff2",
+        shadow: "#4a2b71",
+        surface: "#27193a",
+      };
+    }
+
+    return {
+      source: "local-ai",
+      themeName: themeName,
+      caption: caption,
+      palette: palette,
+      backgroundImageDataUrl: "",
+      storyWhisper:
+        "The room reshapes around your dream: " +
+        themeName +
+        ". The air tastes like possibility.",
+    };
+  }
+
+  /** Rich offline narrator when /api/ai/story is unavailable (static hosting). */
+  function localGuideNarrative(eventType, payload) {
+    const room = state.themeName;
+    const bal = formatNumber(state.balance);
+
+    switch (eventType) {
+      case "big_win":
+        return (
+          "Listen — " +
+          room +
+          " just lit up for Lynne. The reels agreed: " +
+          (payload.recentOutcome || "a dazzling hit") +
+          ". Balance glows at " +
+          bal +
+          " credits."
+        );
+      case "diamond_bonus":
+        return (
+          "Three diamonds woke the vault. " +
+          room +
+          " hums a little brighter. Choose crystals like you're choosing constellations — each one remembers your luck."
+        );
+      case "free_spin_bonus":
+        return (
+          "Sevens carved a doorway of free spins. " +
+          room +
+          " offers three moods: moonlight drift, starfall balance, or comet sprint. Pick what your heart wants next."
+        );
+      case "treasure_shelf":
+        return (
+          "Three bells opened the Treasure Shelf. " +
+          room +
+          " leans in: one shelf is steady, one is velvet-soft adventure, one is a golden pop of surprise."
+        );
+      case "guide":
+        return (
+          "Before the next spin, Lynne, imagine the payline as a ribbon of light. " +
+          room +
+          " is listening — breathe once, then let the reels decide the story."
+        );
+      default:
+        return (
+          (payload && payload.recentOutcome) ||
+          "The lounge holds its breath between spins. " + room + " keeps a little sparkle in reserve just for you."
+        );
+    }
   }
 
   function setIdleReels() {
@@ -758,8 +963,8 @@ document.addEventListener("DOMContentLoaded", function () {
       setStoryOutput(result.message);
       setAiStatus(result.source === "openai" ? "Lucky Guide is speaking live" : "Lucky Guide is using cozy fallback mode");
     } catch (error) {
-      setStoryOutput("The room is still magical, even without the live guide. Try again after the server settles.");
-      setAiStatus("Guide request failed, using browser-safe fallback");
+      setStoryOutput(localGuideNarrative(eventType, payload));
+      setAiStatus("Offline smart guide — deploy /api/ai/story for live AI");
     }
   }
 
@@ -796,8 +1001,18 @@ document.addEventListener("DOMContentLoaded", function () {
             : "Using local cozy art fallback"
       );
     } catch (error) {
-      applyThemeData(localTheme);
-      setAiStatus("Theme request failed, using local cozy art");
+      const offline = localEvolveThemeFromPrompt(themePromptEl.value);
+      applyThemeData({
+        source: offline.source,
+        themeName: offline.themeName,
+        caption: offline.caption,
+        palette: offline.palette,
+        backgroundImageDataUrl: offline.backgroundImageDataUrl || "",
+      });
+      if (offline.storyWhisper) {
+        setStoryOutput(offline.storyWhisper);
+      }
+      setAiStatus("Offline dream engine — deploy /api/ai/theme for live image + palette AI");
     } finally {
       updateUi();
     }
@@ -1172,6 +1387,16 @@ document.addEventListener("DOMContentLoaded", function () {
     updateUi();
   }
 
+  function toggleMusic() {
+    state.musicEnabled = !state.musicEnabled;
+    if (state.musicEnabled) {
+      ambientMusic.start();
+    } else {
+      ambientMusic.stop();
+    }
+    updateUi();
+  }
+
   function resetGame() {
     if (state.spinning) {
       return;
@@ -1185,6 +1410,8 @@ document.addEventListener("DOMContentLoaded", function () {
     state.freeSpinLabel = "Moonlight x2";
     state.worldStage = 1;
     state.bonusMoments = 0;
+    state.musicEnabled = false;
+    ambientMusic.stop();
     clearWinningHighlights();
     effectsLayerEl.innerHTML = "";
     closeBonusOverlay();
@@ -1204,11 +1431,17 @@ document.addEventListener("DOMContentLoaded", function () {
     updateUi();
     setStoryOutput("The room is settled into a velvet glow. When you are ready, I will help the world bloom.");
     showMessage("Welcome to Lynne's AI Slot Deluxe. Let the room glow, then press Spin.", "");
-    setAiStatus("Server-safe mode is ready");
+    setAiStatus("Offline AI + music ready (optional /api routes for live models)");
 
     spinButton.addEventListener("click", playSpin);
     resetButton.addEventListener("click", resetGame);
     soundButton.addEventListener("click", toggleSound);
+    if (musicButton) {
+      musicButton.addEventListener("click", function () {
+        sound.click();
+        toggleMusic();
+      });
+    }
     themeButton.addEventListener("click", function () {
       sound.click();
       evolveTheme("manual theme request from Lynne");
