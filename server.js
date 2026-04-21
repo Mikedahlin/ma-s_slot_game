@@ -255,7 +255,7 @@ app.post("/api/ai/theme", async (request, response) => {
   response.json(await generateTheme(payload));
 });
 
-app.get("*", (request, response) => {
+app.use((request, response) => {
   response.sendFile(path.join(__dirname, "index.html"));
 });
 
