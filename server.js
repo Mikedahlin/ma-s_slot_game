@@ -3,57 +3,34 @@ import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
 import OpenAI from "openai";
+import { GoogleGenAI } from "@google/genai";
+import {
+  buildRuntimeConfig,
+  getAiProviderStatus,
+  getRuntimeSnapshot,
+} from "./lib/runtimeConfig.js";
 
 dotenv.config();
 
+const runtimeConfig = buildRuntimeConfig(process.env);
+const runtimeSnapshot = getRuntimeSnapshot(runtimeConfig);
+
 const app = express();
-const port = Number.parseInt(process.env.PORT || "3000", 10);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const openai = process.env.OPENAI_API_KEY
-  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+const openaiClient = runtimeConfig.ai.openAiApiKey
+  ? new OpenAI({ apiKey: runtimeConfig.ai.openAiApiKey })
+  : null;
+const geminiClient = runtimeConfig.ai.geminiApiKey
+  ? new GoogleGenAI({ apiKey: runtimeConfig.ai.geminiApiKey })
   : null;
 
-function normalizeModelChoice(value, fallback) {
-  const rawValue = String(value || "").trim();
-  if (!rawValue) {
-    return fallback;
+function debugLog(...args) {
+  if (runtimeConfig.ai.debug) {
+    console.log("[ai-debug]", ...args);
   }
-
-  const lowered = rawValue.toLowerCase().replace(/\s+/g, "");
-
-  if (
-    lowered === "gpt-3.5" ||
-    lowered === "gpt-3.5-turbo" ||
-    lowered === "gpt3.5" ||
-    lowered === "gpt3.5-turbo" ||
-    lowered === "gpt-5.0-mini" ||
-    lowered === "gpt5.0-mini" ||
-    lowered === "gpt-5.0-minis" ||
-    lowered === "gpt5.0-minis" ||
-    lowered === "gpt-5-" ||
-    lowered === "gpt5-"
-  ) {
-    return fallback;
-  }
-
-  if (lowered === "gpt-5mini" || lowered === "gpt5mini") {
-    return "gpt-5-mini";
-  }
-
-  if (lowered === "gpt-5.0" || lowered === "gpt5.0") {
-    return "gpt-5";
-  }
-
-  return rawValue.trim();
 }
-
-const textModel = normalizeModelChoice(process.env.OPENAI_TEXT_MODEL, "gpt-5-mini");
-const imageControllerModel = normalizeModelChoice(
-  process.env.OPENAI_IMAGE_CONTROLLER_MODEL,
-  "gpt-5"
-);
 
 const fallbackThemePrompts = [
   "velvet starlight lounge",
@@ -64,6 +41,31 @@ const fallbackThemePrompts = [
 ];
 
 app.use(express.json({ limit: "2mb" }));
+app.use((request, response, next) => {
+  const allowedOrigins = runtimeConfig.cors.allowedOrigins;
+  if (allowedOrigins.length === 0) {
+    next();
+    return;
+  }
+
+  const origin = request.headers.origin;
+  if (origin && allowedOrigins.includes(origin)) {
+    response.setHeader("Access-Control-Allow-Origin", origin);
+    response.setHeader("Vary", "Origin");
+    response.setHeader(
+      "Access-Control-Allow-Headers",
+      "Content-Type, Authorization, X-Requested-With"
+    );
+    response.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  }
+
+  if (request.method === "OPTIONS") {
+    response.status(204).send();
+    return;
+  }
+
+  next();
+});
 app.use(express.static(__dirname));
 
 function clamp(value, minimum, maximum) {
@@ -219,6 +221,19 @@ function buildStoryPrompt(payload) {
   ].join("\n");
 }
 
+function buildGroundedStoryPrompt(payload, braveContext) {
+  if (!braveContext) {
+    return buildStoryPrompt(payload);
+  }
+
+  return [
+    buildStoryPrompt(payload),
+    "",
+    "Optional web grounding context (use only if relevant):",
+    braveContext,
+  ].join("\n");
+}
+
 function buildThemeImagePrompt({ themePrompt, worldStage, reason, currentTheme }) {
   const cleanPrompt = String(themePrompt || "").trim();
   const basePrompt =
@@ -259,37 +274,167 @@ function buildThemeMetadataPrompt({ themePrompt, worldStage, reason, currentThem
   ].join(" ");
 }
 
-async function generateThemeMetadata(payload, fallbackTheme) {
-  if (!openai) {
-    return fallbackTheme;
+function parseBraveSnippets(bravePayload) {
+  const genericGrounding = bravePayload?.grounding?.generic;
+  if (!Array.isArray(genericGrounding)) {
+    return "";
+  }
+
+  const snippets = [];
+  for (const entry of genericGrounding.slice(0, runtimeConfig.ai.braveGroundingMaxUrls)) {
+    const entrySnippets = Array.isArray(entry?.snippets) ? entry.snippets : [];
+    for (const snippet of entrySnippets.slice(0, 2)) {
+      snippets.push(`- ${snippet}`);
+    }
+  }
+
+  return snippets.join("\n").trim();
+}
+
+async function fetchBraveGrounding(queryText) {
+  const providerStatus = getAiProviderStatus(runtimeConfig);
+  if (!providerStatus.braveGroundingActive) {
+    return null;
   }
 
   try {
-    const response = await openai.responses.create({
-      model: textModel,
-      input: buildThemeMetadataPrompt(payload),
+    const params = new URLSearchParams({
+      q: queryText,
+      search_lang: runtimeConfig.ai.braveSearchLanguage,
+      country: runtimeConfig.ai.braveSearchCountry,
+      maximum_number_of_urls: String(runtimeConfig.ai.braveGroundingMaxUrls),
+      maximum_number_of_tokens: String(runtimeConfig.ai.braveGroundingMaxTokens),
     });
 
-    const parsed = extractJsonObject(response.output_text);
-    if (!parsed) {
-      return fallbackTheme;
+    const response = await fetch(
+      `https://api.search.brave.com/res/v1/llm/context?${params.toString()}`,
+      {
+        headers: {
+          Accept: "application/json",
+          "X-Subscription-Token": runtimeConfig.ai.braveSearchApiKey,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      debugLog("Brave grounding request failed", response.status);
+      return null;
     }
 
-    return {
-      ...fallbackTheme,
-      source: "openai-text",
-      themeName: parsed.themeName || fallbackTheme.themeName,
-      caption: parsed.caption || fallbackTheme.caption,
-      storyWhisper: parsed.storyWhisper || fallbackTheme.storyWhisper,
-      palette: {
-        accent: parsed.accent || fallbackTheme.palette.accent,
-        accentSoft: parsed.accentSoft || fallbackTheme.palette.accentSoft,
-        glow: parsed.glow || fallbackTheme.palette.glow,
-        glowSoft: parsed.glowSoft || fallbackTheme.palette.glowSoft,
-        shadow: parsed.shadow || fallbackTheme.palette.shadow,
-        surface: parsed.surface || fallbackTheme.palette.surface,
-      },
-    };
+    const payload = await response.json();
+    const snippets = parseBraveSnippets(payload);
+    return snippets || null;
+  } catch (error) {
+    debugLog("Brave grounding request error", error);
+    return null;
+  }
+}
+
+function parseGeminiJsonObject(rawText) {
+  if (!rawText) {
+    return null;
+  }
+  return extractJsonObject(rawText);
+}
+
+function extractGeminiImageData(response) {
+  const candidates = Array.isArray(response?.candidates) ? response.candidates : [];
+  for (const candidate of candidates) {
+    const parts = Array.isArray(candidate?.content?.parts)
+      ? candidate.content.parts
+      : [];
+    for (const part of parts) {
+      if (part?.inlineData?.data) {
+        return part.inlineData.data;
+      }
+    }
+  }
+  return null;
+}
+
+async function runGeminiText(prompt, model) {
+  if (!geminiClient) {
+    throw new Error("Gemini client is not configured");
+  }
+  const response = await geminiClient.models.generateContent({
+    model,
+    contents: prompt,
+  });
+  return response?.text?.trim() || "";
+}
+
+async function runGeminiImage(prompt, model) {
+  if (!geminiClient) {
+    throw new Error("Gemini client is not configured");
+  }
+  const response = await geminiClient.models.generateContent({
+    model,
+    contents: prompt,
+  });
+  return extractGeminiImageData(response);
+}
+
+async function generateThemeMetadata(payload, fallbackTheme) {
+  const providerStatus = getAiProviderStatus(runtimeConfig);
+  if (runtimeConfig.ai.disabled || !runtimeConfig.ai.enableTheme) {
+    return fallbackTheme;
+  }
+
+  const prompt = buildThemeMetadataPrompt(payload);
+
+  try {
+    if (providerStatus.effectiveProvider === "gemini") {
+      const text = await runGeminiText(prompt, runtimeConfig.ai.textModel);
+      const parsed = parseGeminiJsonObject(text);
+      if (!parsed) {
+        return fallbackTheme;
+      }
+      return {
+        ...fallbackTheme,
+        source: "gemini-text",
+        themeName: parsed.themeName || fallbackTheme.themeName,
+        caption: parsed.caption || fallbackTheme.caption,
+        storyWhisper: parsed.storyWhisper || fallbackTheme.storyWhisper,
+        palette: {
+          accent: parsed.accent || fallbackTheme.palette.accent,
+          accentSoft: parsed.accentSoft || fallbackTheme.palette.accentSoft,
+          glow: parsed.glow || fallbackTheme.palette.glow,
+          glowSoft: parsed.glowSoft || fallbackTheme.palette.glowSoft,
+          shadow: parsed.shadow || fallbackTheme.palette.shadow,
+          surface: parsed.surface || fallbackTheme.palette.surface,
+        },
+      };
+    }
+
+    if (providerStatus.effectiveProvider === "openai" && openaiClient) {
+      const response = await openaiClient.responses.create({
+        model: runtimeConfig.ai.textModel,
+        input: prompt,
+      });
+
+      const parsed = extractJsonObject(response.output_text);
+      if (!parsed) {
+        return fallbackTheme;
+      }
+
+      return {
+        ...fallbackTheme,
+        source: "openai-text",
+        themeName: parsed.themeName || fallbackTheme.themeName,
+        caption: parsed.caption || fallbackTheme.caption,
+        storyWhisper: parsed.storyWhisper || fallbackTheme.storyWhisper,
+        palette: {
+          accent: parsed.accent || fallbackTheme.palette.accent,
+          accentSoft: parsed.accentSoft || fallbackTheme.palette.accentSoft,
+          glow: parsed.glow || fallbackTheme.palette.glow,
+          glowSoft: parsed.glowSoft || fallbackTheme.palette.glowSoft,
+          shadow: parsed.shadow || fallbackTheme.palette.shadow,
+          surface: parsed.surface || fallbackTheme.palette.surface,
+        },
+      };
+    }
+
+    return fallbackTheme;
   } catch (error) {
     console.error("AI theme metadata generation failed:", error);
     return fallbackTheme;
@@ -297,7 +442,8 @@ async function generateThemeMetadata(payload, fallbackTheme) {
 }
 
 async function generateStory(payload) {
-  if (!openai) {
+  const providerStatus = getAiProviderStatus(runtimeConfig);
+  if (runtimeConfig.ai.disabled || !runtimeConfig.ai.enableStory) {
     return {
       source: "fallback",
       message: buildFallbackStory(payload),
@@ -305,14 +451,34 @@ async function generateStory(payload) {
   }
 
   try {
-    const response = await openai.responses.create({
-      model: textModel,
-      input: buildStoryPrompt(payload),
-    });
+    const grounding = await fetchBraveGrounding(
+      `${payload.themeName} ${payload.eventType} slot game guidance`
+    );
+    const prompt = buildGroundedStoryPrompt(payload, grounding);
+
+    if (providerStatus.effectiveProvider === "gemini") {
+      const message = await runGeminiText(prompt, runtimeConfig.ai.textModel);
+      return {
+        source: "gemini",
+        message: message || buildFallbackStory(payload),
+      };
+    }
+
+    if (providerStatus.effectiveProvider === "openai" && openaiClient) {
+      const response = await openaiClient.responses.create({
+        model: runtimeConfig.ai.textModel,
+        input: prompt,
+      });
+
+      return {
+        source: "openai",
+        message: response.output_text?.trim() || buildFallbackStory(payload),
+      };
+    }
 
     return {
-      source: "openai",
-      message: response.output_text?.trim() || buildFallbackStory(payload),
+      source: "fallback",
+      message: buildFallbackStory(payload),
     };
   } catch (error) {
     console.error("AI story generation failed:", error);
@@ -326,38 +492,75 @@ async function generateStory(payload) {
 async function generateTheme(payload) {
   const fallbackTheme = buildFallbackTheme(payload);
   const themedResult = await generateThemeMetadata(payload, fallbackTheme);
+  const providerStatus = getAiProviderStatus(runtimeConfig);
 
-  if (!openai) {
+  if (runtimeConfig.ai.disabled || !runtimeConfig.ai.enableTheme) {
     return themedResult;
   }
 
   try {
-    const response = await openai.responses.create({
-      model: imageControllerModel,
-      input: buildThemeImagePrompt(payload),
-      tools: [{ type: "image_generation", action: "generate" }],
-    });
+    const imagePrompt = buildThemeImagePrompt(payload);
+    let imageData = null;
+    let source = themedResult.source;
 
-    const outputItems = Array.isArray(response.output) ? response.output : [];
-    const generatedImage = outputItems.find(
-      (item) => item.type === "image_generation_call" && item.result
-    );
+    if (providerStatus.effectiveProvider === "gemini") {
+      imageData = await runGeminiImage(
+        imagePrompt,
+        runtimeConfig.ai.imageControllerModel
+      );
+      source = imageData ? "gemini-image" : themedResult.source;
+    } else if (
+      providerStatus.effectiveProvider === "openai" &&
+      openaiClient
+    ) {
+      const response = await openaiClient.responses.create({
+        model: runtimeConfig.ai.imageControllerModel,
+        input: imagePrompt,
+        tools: [{ type: "image_generation", action: "generate" }],
+      });
+
+      const outputItems = Array.isArray(response.output) ? response.output : [];
+      const generatedImage = outputItems.find(
+        (item) => item.type === "image_generation_call" && item.result
+      );
+      imageData = generatedImage?.result || null;
+      source = imageData ? "openai-image" : themedResult.source;
+    }
 
     return {
       ...themedResult,
-      source: generatedImage ? "openai-image" : themedResult.source,
-      caption: generatedImage
+      source,
+      caption: imageData
         ? "Live AI art is active. The world is evolving into a richer, dreamier bonus lounge for Lynne."
         : themedResult.caption,
-      backgroundImageDataUrl: generatedImage
-        ? "data:image/png;base64," + generatedImage.result
-        : null,
+      backgroundImageDataUrl: imageData ? "data:image/png;base64," + imageData : null,
     };
   } catch (error) {
     console.error("AI theme generation failed:", error);
     return themedResult;
   }
 }
+
+app.get("/health", (request, response) => {
+  response.json({
+    ok: true,
+    app: "lynnes-ai-slot-deluxe",
+    now: new Date().toISOString(),
+    ai: {
+      provider: runtimeSnapshot.ai.provider,
+      effectiveProvider: runtimeSnapshot.ai.effectiveProvider,
+      mode: runtimeSnapshot.ai.effectiveMode,
+      storyEnabled: runtimeSnapshot.ai.enableStory,
+      themeEnabled: runtimeSnapshot.ai.enableTheme,
+      braveGroundingEnabled: runtimeSnapshot.ai.braveGroundingEnabled,
+      braveGroundingActive: runtimeSnapshot.ai.braveGroundingActive,
+    },
+  });
+});
+
+app.get("/api/runtime-config", (request, response) => {
+  response.json(runtimeSnapshot);
+});
 
 app.post("/api/ai/story", async (request, response) => {
   const payload = {
@@ -388,8 +591,13 @@ app.use((request, response) => {
   response.sendFile(path.join(__dirname, "index.html"));
 });
 
-app.listen(port, () => {
-  console.log("Lynne's AI slot game is running at http://localhost:" + port);
-  console.log("Text model:", textModel);
-  console.log("Image controller model:", imageControllerModel);
+app.listen(runtimeConfig.server.port, () => {
+  console.log(
+    "Lynne's AI slot game is running at http://localhost:" +
+      runtimeConfig.server.port
+  );
+  console.log("AI provider:", runtimeSnapshot.ai.provider);
+  console.log("Effective AI mode:", runtimeSnapshot.ai.effectiveMode);
+  console.log("Text model:", runtimeSnapshot.ai.textModel);
+  console.log("Image controller model:", runtimeSnapshot.ai.imageControllerModel);
 });

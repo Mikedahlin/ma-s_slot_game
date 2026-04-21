@@ -376,6 +376,10 @@ button:disabled {
   animation: machinePulse 0.72s ease-in-out 3;
 }
 
+.animations-disabled .machine.is-big-win {
+  animation: none;
+}
+
 @keyframes machinePulse {
   0%,
   100% {
@@ -401,6 +405,10 @@ button:disabled {
   background: linear-gradient(135deg, var(--theme-accent-soft), var(--theme-accent));
   box-shadow: 0 0 12px color-mix(in srgb, var(--theme-accent) 72%, transparent);
   animation: bulbBlink 1.25s linear infinite;
+}
+
+.animations-disabled .marquee span {
+  animation: none;
 }
 
 .marquee span:nth-child(even) {
@@ -466,6 +474,11 @@ button:disabled {
   background: var(--particle-color, #ffffff);
   box-shadow: 0 0 18px var(--particle-color, #ffffff);
   animation: particleBurst 850ms ease-out forwards;
+}
+
+.animations-disabled .particle {
+  animation: none;
+  opacity: 0;
 }
 
 @keyframes particleBurst {

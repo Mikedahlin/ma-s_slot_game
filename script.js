@@ -11,6 +11,16 @@ document.addEventListener("DOMContentLoaded", function () {
   const FREE_SPIN_COUNT = 3;
   const FREE_SPIN_MULTIPLIER = 2;
   const STORY_LOG_LIMIT = 6;
+  const RUNTIME_DEFAULTS = {
+    soundEnabled: true,
+    musicEnabled: false,
+    voiceGuideEnabled: false,
+    animationsEnabled: true,
+    bonusVideoEnabled: true,
+    bonusVideoUrlWebm: "",
+    bonusVideoUrlMp4: "",
+    reduceMotionHonored: true,
+  };
 
   const symbols = [
     { id: "cherry", name: "Cherry", icon: "🍒", weight: 32, multiplier: 2 },
@@ -99,10 +109,13 @@ document.addEventListener("DOMContentLoaded", function () {
     freeSpinLabel: "Moonlight x2",
     spinning: false,
     worldStage: 1,
-    soundEnabled: true,
-    musicEnabled: false,
+    soundEnabled: RUNTIME_DEFAULTS.soundEnabled,
+    musicEnabled: RUNTIME_DEFAULTS.musicEnabled,
     musicPlaying: false,
-    voiceGuideEnabled: false,
+    voiceGuideEnabled: RUNTIME_DEFAULTS.voiceGuideEnabled,
+    animationsEnabled: RUNTIME_DEFAULTS.animationsEnabled,
+    bonusVideoEnabled: RUNTIME_DEFAULTS.bonusVideoEnabled,
+    reduceMotionHonored: RUNTIME_DEFAULTS.reduceMotionHonored,
     themeName: localThemeStages[0].themeName,
     currentThemeImage: "",
     themeCaption: localThemeStages[0].caption,
@@ -148,6 +161,92 @@ document.addEventListener("DOMContentLoaded", function () {
     document.getElementById("reel-1"),
     document.getElementById("reel-2"),
   ];
+
+  function coerceBoolean(value, fallback) {
+    if (typeof value === "boolean") {
+      return value;
+    }
+    if (value === undefined || value === null || value === "") {
+      return fallback;
+    }
+    const normalized = String(value).trim().toLowerCase();
+    if (["1", "true", "yes", "on"].includes(normalized)) {
+      return true;
+    }
+    if (["0", "false", "no", "off"].includes(normalized)) {
+      return false;
+    }
+    return fallback;
+  }
+
+  function applyAnimationPreference(enabled) {
+    document.documentElement.classList.toggle("animations-disabled", !enabled);
+  }
+
+  function applyBonusVideoSources(webmUrl, mp4Url) {
+    if (!bonusVideoBgEl) {
+      return;
+    }
+    const sourceNodes = bonusVideoBgEl.querySelectorAll("source");
+    const webmSource = sourceNodes[0];
+    const mp4Source = sourceNodes[1];
+    if (webmSource && typeof webmUrl === "string" && webmUrl.trim()) {
+      webmSource.src = webmUrl.trim();
+    }
+    if (mp4Source && typeof mp4Url === "string" && mp4Url.trim()) {
+      mp4Source.src = mp4Url.trim();
+    }
+    bonusVideoBgEl.load();
+  }
+
+  async function loadRuntimeDefaults() {
+    try {
+      const response = await fetch("/api/runtime-config");
+      if (!response.ok) {
+        return;
+      }
+      const runtime = await response.json();
+      const defaults = runtime?.defaults || {};
+      state.soundEnabled = coerceBoolean(defaults.soundEnabled, state.soundEnabled);
+      state.musicEnabled = coerceBoolean(defaults.musicEnabled, state.musicEnabled);
+      state.voiceGuideEnabled = coerceBoolean(
+        defaults.voiceGuideEnabled,
+        state.voiceGuideEnabled
+      );
+      state.animationsEnabled = coerceBoolean(
+        defaults.animationsEnabled,
+        state.animationsEnabled
+      );
+      state.bonusVideoEnabled = coerceBoolean(
+        defaults.bonusVideoEnabled,
+        state.bonusVideoEnabled
+      );
+      state.reduceMotionHonored = coerceBoolean(
+        defaults.reduceMotionHonored,
+        state.reduceMotionHonored
+      );
+
+      const prefersReducedMotion =
+        window.matchMedia &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (state.reduceMotionHonored && prefersReducedMotion) {
+        state.animationsEnabled = false;
+        state.bonusVideoEnabled = false;
+      }
+
+      if (voiceGuideEl) {
+        voiceGuideEl.checked = state.voiceGuideEnabled;
+      }
+
+      applyAnimationPreference(state.animationsEnabled);
+      applyBonusVideoSources(defaults.bonusVideoUrlWebm, defaults.bonusVideoUrlMp4);
+      if (bonusVideoBgEl) {
+        bonusVideoBgEl.style.display = state.bonusVideoEnabled ? "" : "none";
+      }
+    } catch (error) {
+      /* Keep local defaults when runtime config endpoint is unavailable. */
+    }
+  }
 
   const sound = {
     context: null,
@@ -399,11 +498,15 @@ document.addEventListener("DOMContentLoaded", function () {
     bonusOverlayEl.classList.toggle("hidden", !isVisible);
     bonusOverlayEl.setAttribute("aria-hidden", isVisible ? "false" : "true");
     if (bonusVideoBgEl) {
-      if (isVisible) {
+      if (isVisible && state.bonusVideoEnabled) {
+        bonusVideoBgEl.style.display = "";
         bonusVideoBgEl.play().catch(function () {});
       } else {
         bonusVideoBgEl.pause();
         bonusVideoBgEl.currentTime = 0;
+        if (!state.bonusVideoEnabled) {
+          bonusVideoBgEl.style.display = "none";
+        }
       }
     }
   }
@@ -542,6 +645,9 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function createExplosionBurst(colors) {
+    if (!state.animationsEnabled) {
+      return;
+    }
     const centerX = 50;
     const centerY = 45;
 
@@ -567,6 +673,9 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function pulseBigWin() {
+    if (!state.animationsEnabled) {
+      return;
+    }
     machineEl.classList.remove("is-big-win");
     void machineEl.offsetWidth;
     machineEl.classList.add("is-big-win");
@@ -961,7 +1070,11 @@ document.addEventListener("DOMContentLoaded", function () {
     try {
       const result = await fetchJson("/api/ai/story", payload);
       setStoryOutput(result.message);
-      setAiStatus(result.source === "openai" ? "Lucky Guide is speaking live" : "Lucky Guide is using cozy fallback mode");
+      setAiStatus(
+        result.source === "openai" || result.source === "gemini"
+          ? "Lucky Guide is speaking live"
+          : "Lucky Guide is using cozy fallback mode"
+      );
     } catch (error) {
       setStoryOutput(localGuideNarrative(eventType, payload));
       setAiStatus("Offline smart guide — deploy /api/ai/story for live AI");
@@ -994,9 +1107,9 @@ document.addEventListener("DOMContentLoaded", function () {
       }
 
       setAiStatus(
-        result.source === "openai-image"
+        result.source === "openai-image" || result.source === "gemini-image"
           ? "Live AI art is active for this world stage"
-          : result.source === "openai-text"
+          : result.source === "openai-text" || result.source === "gemini-text"
             ? "AI designed a new world palette and story"
             : "Using local cozy art fallback"
       );
@@ -1424,14 +1537,15 @@ document.addEventListener("DOMContentLoaded", function () {
     updateUi();
   }
 
-  function init() {
+  async function init() {
+    await loadRuntimeDefaults();
     clampBet();
     applyThemeData(getLocalThemeData());
     setIdleReels();
     updateUi();
     setStoryOutput("The room is settled into a velvet glow. When you are ready, I will help the world bloom.");
     showMessage("Welcome to Lynne's AI Slot Deluxe. Let the room glow, then press Spin.", "");
-    setAiStatus("Offline AI + music ready (optional /api routes for live models)");
+    setAiStatus("AI runtime ready (fallback and live providers supported)");
 
     spinButton.addEventListener("click", playSpin);
     resetButton.addEventListener("click", resetGame);
