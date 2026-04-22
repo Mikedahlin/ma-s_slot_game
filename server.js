@@ -38,6 +38,12 @@ const openai = process.env.OPENAI_API_KEY
   ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
   : null;
 
+function summarizeAiError(error) {
+  const status = error?.status || "unknown";
+  const code = error?.code || error?.type || "unknown_error";
+  return "status:" + status + ",code:" + code;
+}
+
 function normalizeModelChoice(value, fallback) {
   const rawValue = String(value || "").trim();
   if (!rawValue) {
@@ -371,7 +377,10 @@ function buildThemeMetadataPrompt({ themePrompt, worldStage, reason, currentThem
 
 async function generateThemeMetadata(payload, fallbackTheme) {
   if (!openai) {
-    return fallbackTheme;
+    return {
+      theme: fallbackTheme,
+      textError: "status:missing_key,code:openai_not_configured",
+    };
   }
 
   try {
@@ -386,6 +395,7 @@ async function generateThemeMetadata(payload, fallbackTheme) {
     }
 
     return {
+      theme: {
       ...fallbackTheme,
       source: "openai-text",
       themeName: parsed.themeName || fallbackTheme.themeName,
@@ -405,10 +415,15 @@ async function generateThemeMetadata(payload, fallbackTheme) {
         pulseHz: parsed.musicTempo,
         mood: parsed.musicMood,
       }, fallbackTheme.musicProfile),
+      },
+      textError: null,
     };
   } catch (error) {
     console.error("AI theme metadata generation failed:", error);
-    return fallbackTheme;
+    return {
+      theme: fallbackTheme,
+      textError: summarizeAiError(error),
+    };
   }
 }
 
@@ -446,6 +461,7 @@ async function generateStory(payload) {
     return {
       source: "fallback",
       message: buildFallbackStory(payload),
+      fallbackReason: "status:missing_key,code:openai_not_configured",
     };
   }
 
@@ -458,22 +474,27 @@ async function generateStory(payload) {
     return {
       source: "openai",
       message: response.output_text?.trim() || buildFallbackStory(payload),
+      fallbackReason: null,
     };
   } catch (error) {
     console.error("AI story generation failed:", error);
     return {
       source: "fallback",
       message: buildFallbackStory(payload),
+      fallbackReason: summarizeAiError(error),
     };
   }
 }
 
 async function generateTheme(payload) {
   const fallbackTheme = buildFallbackTheme(payload);
-  const themedResult = await generateThemeMetadata(payload, fallbackTheme);
+  const { theme: themedResult, textError } = await generateThemeMetadata(payload, fallbackTheme);
 
   if (!openai) {
-    return themedResult;
+    return {
+      ...themedResult,
+      fallbackReason: textError,
+    };
   }
 
   try {
@@ -495,10 +516,14 @@ async function generateTheme(payload) {
       backgroundImageDataUrl: generatedImage?.b64_json
         ? "data:image/png;base64," + generatedImage.b64_json
         : generatedImage?.url || null,
+      fallbackReason: generatedImage ? null : (textError || "status:unknown,code:image_empty"),
     };
   } catch (error) {
     console.error("AI theme generation failed:", error);
-    return themedResult;
+    return {
+      ...themedResult,
+      fallbackReason: summarizeAiError(error),
+    };
   }
 }
 
