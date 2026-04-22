@@ -501,7 +501,7 @@ async function generateTheme(payload) {
     const response = await openai.images.generate({
       model: imageControllerModel,
       prompt: buildThemeImagePrompt(payload),
-      size: "1536x1024",
+      size: "1024x1024",
     });
     const generatedImage = Array.isArray(response.data)
       ? response.data.find((item) => item.b64_json || item.url)
