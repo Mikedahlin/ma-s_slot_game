@@ -102,7 +102,7 @@ document.addEventListener("DOMContentLoaded", function () {
     spinning: false,
     worldStage: 1,
     soundEnabled: true,
-    musicEnabled: false,
+    musicEnabled: true,
     musicPlaying: false,
     voiceGuideEnabled: false,
     themeName: localThemeStages[0].themeName,
@@ -143,6 +143,7 @@ document.addEventListener("DOMContentLoaded", function () {
   const bonusChoicesEl = document.getElementById("bonus-choices");
   const bonusSummaryEl = document.getElementById("bonus-summary");
   const bonusCloseButton = document.getElementById("bonus-close");
+  const momLoveSignEl = document.getElementById("mom-love-sign");
   const soundButton = document.getElementById("sound-button");
   const musicButton = document.getElementById("music-button");
   const voiceGuideEl = document.getElementById("voice-guide");
@@ -405,7 +406,9 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function setAiStatus(text) {
-    aiStatusEl.textContent = text;
+    if (aiStatusEl) {
+      aiStatusEl.textContent = text;
+    }
   }
 
   function setThemeSourceLabel(source) {
@@ -417,7 +420,9 @@ document.addEventListener("DOMContentLoaded", function () {
       local: "Visual mode: local",
     };
     const prettySource = sourceLabels[source] || "Visual mode: local";
-    themeSourceEl.textContent = prettySource;
+    if (themeSourceEl) {
+      themeSourceEl.textContent = prettySource;
+    }
   }
 
   function shuffle(items) {
@@ -569,17 +574,26 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
-  function createExplosionBurst(colors) {
+  function createExplosionBurst(colors, options) {
+    const opts = options || {};
+    const count = Number(opts.count) || 34;
+    const minDistance = Number(opts.minDistance) || 120;
+    const maxDistance = Number(opts.maxDistance) || 190;
+    const durationMs = Number(opts.durationMs) || 1200;
+    const size = Number(opts.size) || 14;
     const centerX = 50;
     const centerY = 45;
 
-    for (let index = 0; index < 22; index += 1) {
+    for (let index = 0; index < count; index += 1) {
       const particleEl = document.createElement("span");
-      const angle = (Math.PI * 2 * index) / 22;
-      const distance = 90 + Math.random() * 130;
+      const angle = (Math.PI * 2 * index) / count;
+      const distance = minDistance + Math.random() * Math.max(10, maxDistance - minDistance);
       const color = colors[index % colors.length];
 
       particleEl.className = "particle";
+      particleEl.style.width = size + "px";
+      particleEl.style.height = size + "px";
+      particleEl.style.animationDuration = durationMs + "ms";
       particleEl.style.left = centerX + "%";
       particleEl.style.top = centerY + "%";
       particleEl.style.setProperty("--dx", Math.cos(angle) * distance + "px");
@@ -590,8 +604,88 @@ document.addEventListener("DOMContentLoaded", function () {
 
       window.setTimeout(function () {
         particleEl.remove();
-      }, 900);
+      }, durationMs + 120);
     }
+  }
+
+  function addWinFlash(level) {
+    const flashEl = document.createElement("span");
+    flashEl.className = "win-flash " + (level === "big" ? "win-flash--big" : "win-flash--small");
+    effectsLayerEl.appendChild(flashEl);
+
+    window.setTimeout(function () {
+      flashEl.remove();
+    }, level === "big" ? 1200 : 900);
+  }
+
+  function showMomLoveSign() {
+    if (!momLoveSignEl) {
+      return;
+    }
+    momLoveSignEl.classList.remove("is-visible");
+    void momLoveSignEl.offsetWidth;
+    momLoveSignEl.classList.add("is-visible");
+    window.setTimeout(function () {
+      momLoveSignEl.classList.remove("is-visible");
+    }, 2600);
+  }
+
+  function playWinStinger(level) {
+    if (!state.soundEnabled) {
+      return;
+    }
+
+    if (level === "big") {
+      sound.tone(330, 0.16, "triangle", 0.07, 0);
+      sound.tone(440, 0.2, "triangle", 0.07, 0.08);
+      sound.tone(554, 0.22, "sawtooth", 0.08, 0.18);
+      sound.tone(659, 0.26, "sawtooth", 0.08, 0.3);
+      sound.tone(880, 0.28, "triangle", 0.08, 0.44);
+      return;
+    }
+
+    sound.tone(392, 0.13, "triangle", 0.06, 0);
+    sound.tone(523, 0.15, "triangle", 0.06, 0.06);
+    sound.tone(659, 0.18, "sine", 0.06, 0.14);
+  }
+
+  function triggerWinExplosion(level) {
+    if (level === "big") {
+      machineEl.classList.add("is-jackpot");
+      createExplosionBurst(["#ffe88a", "#ff4eb5", "#54e7ff", "#ffffff", "#ff8f66"], {
+        count: 72,
+        minDistance: 130,
+        maxDistance: 250,
+        durationMs: 1400,
+        size: 16,
+      });
+      window.setTimeout(function () {
+        createExplosionBurst(["#ffe88a", "#ff4eb5", "#54e7ff", "#ffffff"], {
+          count: 56,
+          minDistance: 90,
+          maxDistance: 220,
+          durationMs: 1200,
+          size: 12,
+        });
+      }, 180);
+      addWinFlash("big");
+      playWinStinger("big");
+      showMomLoveSign();
+      window.setTimeout(function () {
+        machineEl.classList.remove("is-jackpot");
+      }, 1700);
+      return;
+    }
+
+    createExplosionBurst(["#5ff0af", "#54e7ff", "#ffcf63", "#ffffff"], {
+      count: 42,
+      minDistance: 95,
+      maxDistance: 180,
+      durationMs: 980,
+      size: 12,
+    });
+    addWinFlash("small");
+    playWinStinger("small");
   }
 
   function pulseBigWin() {
@@ -1547,6 +1641,9 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     sound.click();
+    if (state.musicEnabled && !state.musicPlaying) {
+      ambientMusic.start();
+    }
 
     if (state.bet <= 0) {
       showMessage("Your bet is too low. Raise it to at least 10 credits.", "loss");
@@ -1603,7 +1700,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
       if (payoutMultiplier >= BIG_WIN_MULTIPLIER) {
         pulseBigWin();
-        createExplosionBurst(["#ffcf63", "#ff4eb5", "#54e7ff", "#ffffff"]);
+        triggerWinExplosion("big");
         sound.bigWin();
         showMessage(
           "Big win! " + result.description + " paid " + formatNumber(baseWinnings) + " credits.",
@@ -1614,7 +1711,7 @@ document.addEventListener("DOMContentLoaded", function () {
         });
         await maybeAdvanceWorldStage("big win evolution");
       } else {
-        createExplosionBurst(["#5ff0af", "#54e7ff", "#ffcf63"]);
+        triggerWinExplosion("small");
         sound.smallWin();
         showMessage(
           "Nice win! " + result.description + " paid " + formatNumber(baseWinnings) + " credits.",
@@ -1686,6 +1783,32 @@ document.addEventListener("DOMContentLoaded", function () {
     updateUi();
   }
 
+  function unlockAudioOnFirstGesture() {
+    let unlocked = false;
+
+    function unlock() {
+      if (unlocked) {
+        return;
+      }
+      unlocked = true;
+
+      const ctx = ensureAudioContext();
+      if (ctx && ctx.state === "suspended") {
+        ctx.resume().catch(function () {});
+      }
+
+      if (state.musicEnabled && !state.musicPlaying) {
+        ambientMusic.start();
+      }
+
+      window.removeEventListener("pointerdown", unlock);
+      window.removeEventListener("keydown", unlock);
+    }
+
+    window.addEventListener("pointerdown", unlock);
+    window.addEventListener("keydown", unlock);
+  }
+
   function resetGame() {
     if (state.spinning) {
       return;
@@ -1700,7 +1823,7 @@ document.addEventListener("DOMContentLoaded", function () {
     state.worldStage = 1;
     state.bonusMoments = 0;
     state.spinCount = 0;
-    state.musicEnabled = false;
+    state.musicEnabled = true;
     ambientMusic.stop();
     clearWinningHighlights();
     effectsLayerEl.innerHTML = "";
@@ -1737,6 +1860,7 @@ document.addEventListener("DOMContentLoaded", function () {
         toggleMusic();
       });
     }
+    unlockAudioOnFirstGesture();
     themeButton.addEventListener("click", function () {
       sound.click();
       evolveTheme("manual theme request from Lynne");

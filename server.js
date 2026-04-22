@@ -73,9 +73,25 @@ function normalizeModelChoice(value, fallback) {
 }
 
 const textModel = normalizeModelChoice(process.env.OPENAI_TEXT_MODEL, "gpt-5-mini");
-const imageControllerModel = normalizeModelChoice(
-  process.env.OPENAI_IMAGE_CONTROLLER_MODEL,
-  "gpt-5"
+
+function normalizeImageModelChoice(value) {
+  const rawValue = String(value || "").trim();
+  if (!rawValue) {
+    return "gpt-image-1";
+  }
+
+  const lowered = rawValue.toLowerCase().replace(/\s+/g, "");
+
+  // Common typo seen in env vars; route to a known-good image model.
+  if (lowered === "gpt-40-mini" || lowered === "gpt40mini") {
+    return "gpt-image-1";
+  }
+
+  return rawValue;
+}
+
+const imageControllerModel = normalizeImageModelChoice(
+  process.env.OPENAI_IMAGE_MODEL || process.env.OPENAI_IMAGE_CONTROLLER_MODEL
 );
 
 const fallbackThemePrompts = [
@@ -145,13 +161,33 @@ function buildPalette(stage) {
   return palettes[clamp(stage, 1, palettes.length) - 1];
 }
 
-function buildFallbackTheme({ themePrompt, worldStage, reason }) {
-  const palette = buildPalette(worldStage);
+function pickThemeDirection({ themePrompt, worldStage, currentTheme, reason }) {
   const cleanedPrompt = String(themePrompt || "").trim();
-  const sourcePrompt =
-    cleanedPrompt.length > 0
-      ? cleanedPrompt
-      : fallbackThemePrompts[(worldStage - 1) % fallbackThemePrompts.length];
+  if (cleanedPrompt.length > 0) {
+    return cleanedPrompt;
+  }
+
+  const enhancers = [
+    "moonlit velvet accents",
+    "sparkling ribbon details",
+    "golden lantern reflections",
+    "diamond mist highlights",
+    "rose-gold shimmer trails",
+    "starlight glass textures",
+  ];
+
+  const basePrompt = fallbackThemePrompts[(worldStage - 1) % fallbackThemePrompts.length];
+  const current = String(currentTheme || "").toLowerCase();
+  const reasonText = String(reason || "").toLowerCase();
+  const basis = Date.now() + current.length + reasonText.length * 7 + worldStage * 11;
+  const enhancer = enhancers[Math.abs(basis) % enhancers.length];
+
+  return basePrompt + ", " + enhancer;
+}
+
+function buildFallbackTheme({ themePrompt, worldStage, reason, currentTheme }) {
+  const palette = buildPalette(worldStage);
+  const sourcePrompt = pickThemeDirection({ themePrompt, worldStage, currentTheme, reason });
 
   return {
     source: "fallback",
@@ -299,32 +335,24 @@ function buildStoryPrompt(payload) {
 }
 
 function buildThemeImagePrompt({ themePrompt, worldStage, reason, currentTheme }) {
-  const cleanPrompt = String(themePrompt || "").trim();
-  const basePrompt =
-    cleanPrompt.length > 0
-      ? cleanPrompt
-      : fallbackThemePrompts[(worldStage - 1) % fallbackThemePrompts.length];
+  const basePrompt = pickThemeDirection({ themePrompt, worldStage, currentTheme, reason });
 
   return [
-    "Create a premium cozy slot-game background for Lynne.",
+    "Create a premium Las Vegas-style slot-game background for Lynne.",
     "Theme direction: " + basePrompt + ".",
     "Current theme name: " + (currentTheme || "Velvet Starlight Lounge") + ".",
     "Evolution stage: " + worldStage + ".",
     "Reason for evolution: " + reason + ".",
-    "Art direction: warm terracotta, velvet casino textures, magical bonus-room energy, soft gold lighting, sparkling details, dreamy premium mobile game polish.",
+    "Art direction: rich Vegas floor glamour, neon jewel glow, cinematic jackpot lighting, polished chrome trims, velvet casino textures, premium mobile game clarity and depth.",
     "No text, no watermark, no logo, no characters in the foreground, landscape composition.",
   ].join(" ");
 }
 
 function buildThemeMetadataPrompt({ themePrompt, worldStage, reason, currentTheme }) {
-  const cleanPrompt = String(themePrompt || "").trim();
-  const basePrompt =
-    cleanPrompt.length > 0
-      ? cleanPrompt
-      : fallbackThemePrompts[(worldStage - 1) % fallbackThemePrompts.length];
+  const basePrompt = pickThemeDirection({ themePrompt, worldStage, currentTheme, reason });
 
   return [
-    "Create a premium evolving slot-world theme for Lynne.",
+    "Create a premium evolving Las Vegas slot-world theme for Lynne.",
     "Return JSON only.",
     "Keys: themeName, caption, storyWhisper, accent, accentSoft, glow, glowSoft, shadow, surface, musicMood, musicWave, musicTempo, musicRoot.",
     "Use cozy, premium, warm casino fantasy language.",
@@ -449,16 +477,14 @@ async function generateTheme(payload) {
   }
 
   try {
-    const response = await openai.responses.create({
+    const response = await openai.images.generate({
       model: imageControllerModel,
-      input: buildThemeImagePrompt(payload),
-      tools: [{ type: "image_generation", action: "generate" }],
+      prompt: buildThemeImagePrompt(payload),
+      size: "1536x1024",
     });
-
-    const outputItems = Array.isArray(response.output) ? response.output : [];
-    const generatedImage = outputItems.find(
-      (item) => item.type === "image_generation_call" && item.result
-    );
+    const generatedImage = Array.isArray(response.data)
+      ? response.data.find((item) => item.b64_json)
+      : null;
 
     return {
       ...themedResult,
@@ -467,7 +493,7 @@ async function generateTheme(payload) {
         ? "Live AI art is active. The world is evolving into a richer, dreamier bonus lounge for Lynne."
         : themedResult.caption,
       backgroundImageDataUrl: generatedImage
-        ? "data:image/png;base64," + generatedImage.result
+        ? "data:image/png;base64," + generatedImage.b64_json
         : null,
     };
   } catch (error) {
