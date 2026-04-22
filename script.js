@@ -111,6 +111,13 @@ document.addEventListener("DOMContentLoaded", function () {
     themeSource: "local",
     bonusMoments: 0,
     spinCount: 0,
+    musicProfile: {
+      name: "Velvet Night Flow",
+      wave: "sine",
+      pulseHz: 0.12,
+      freqs: [130.81, 164.81, 196.0],
+      brightness: 0.95,
+    },
   };
 
   const balanceEl = document.getElementById("balance");
@@ -241,12 +248,32 @@ document.addEventListener("DOMContentLoaded", function () {
       if (!ctx) {
         return;
       }
+
+      const profile = state.musicProfile || {
+        wave: "sine",
+        pulseHz: 0.12,
+        freqs: [130.81, 164.81, 196.0],
+        brightness: 1,
+      };
+
       const master = ctx.createGain();
       master.gain.value = 0.032;
-      const freqs = [130.81, 164.81, 196.0];
+      const pulser = ctx.createOscillator();
+      pulser.type = "sine";
+      pulser.frequency.value = profile.pulseHz || 0.12;
+      const pulseGain = ctx.createGain();
+      pulseGain.gain.value = 0.006 * (profile.brightness || 1);
+      pulser.connect(pulseGain);
+      pulseGain.connect(master.gain);
+      pulser.start();
+
+      const freqs = Array.isArray(profile.freqs) && profile.freqs.length >= 2
+        ? profile.freqs
+        : [130.81, 164.81, 196.0];
+
       freqs.forEach(function (freq, i) {
         const osc = ctx.createOscillator();
-        osc.type = "sine";
+        osc.type = profile.wave || "sine";
         osc.frequency.value = freq;
         const g = ctx.createGain();
         g.gain.value = 0.22 + i * 0.06;
@@ -256,7 +283,7 @@ document.addEventListener("DOMContentLoaded", function () {
         ambientMusic.nodes.push(osc, g);
       });
       master.connect(ctx.destination);
-      ambientMusic.nodes.push(master);
+      ambientMusic.nodes.push(master, pulser, pulseGain);
       state.musicPlaying = true;
     },
     stop: function () {
@@ -359,11 +386,18 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function setStoryOutput(text) {
-    storyOutputEl.textContent = text;
-    addStoryMoment(text);
+    const collapsedText = String(text || "")
+      .replace(/\s+/g, " ")
+      .trim();
+    const safeText =
+      collapsedText.length > 320
+        ? collapsedText.slice(0, 317).trimEnd() + "..."
+        : collapsedText;
+    storyOutputEl.textContent = safeText;
+    addStoryMoment(safeText);
     if (voiceGuideEl && voiceGuideEl.checked && window.speechSynthesis) {
       window.speechSynthesis.cancel();
-      const line = new SpeechSynthesisUtterance(text);
+      const line = new SpeechSynthesisUtterance(safeText);
       line.rate = 0.96;
       line.pitch = 1.05;
       window.speechSynthesis.speak(line);
@@ -737,6 +771,76 @@ document.addEventListener("DOMContentLoaded", function () {
         themeName +
         ". The air tastes like possibility.",
     };
+  }
+
+  function localComposeMusicFromPrompt(prompt, worldStage) {
+    const text = String(prompt || "").toLowerCase();
+    const stagePulse = 0.1 + worldStage * 0.015;
+
+    if (/moon|night|velvet|midnight|noir/.test(text)) {
+      return {
+        name: "Midnight Velvet Drift",
+        wave: "sine",
+        pulseHz: stagePulse,
+        freqs: [130.81, 155.56, 196.0],
+        brightness: 0.9,
+      };
+    }
+    if (/gold|sun|amber|lantern|honey/.test(text)) {
+      return {
+        name: "Golden Lantern Waltz",
+        wave: "triangle",
+        pulseHz: stagePulse + 0.03,
+        freqs: [146.83, 185.0, 220.0],
+        brightness: 1.05,
+      };
+    }
+    if (/ocean|aqua|blue|teal|tide/.test(text)) {
+      return {
+        name: "Tidal Glass Echo",
+        wave: "sine",
+        pulseHz: stagePulse + 0.02,
+        freqs: [110.0, 146.83, 174.61],
+        brightness: 0.95,
+      };
+    }
+    if (/garden|rose|flower|bloom|petal/.test(text)) {
+      return {
+        name: "Rose Garden Lilt",
+        wave: "triangle",
+        pulseHz: stagePulse + 0.04,
+        freqs: [174.61, 220.0, 261.63],
+        brightness: 1.1,
+      };
+    }
+
+    return {
+      name: "Velvet Night Flow",
+      wave: "sine",
+      pulseHz: stagePulse,
+      freqs: [130.81, 164.81, 196.0],
+      brightness: 0.95,
+    };
+  }
+
+  function applyMusicProfile(profile) {
+    if (!profile || !Array.isArray(profile.freqs) || profile.freqs.length < 2) {
+      return;
+    }
+    state.musicProfile = {
+      name: profile.name || "Dream Lounge Mix",
+      wave: profile.wave || "sine",
+      pulseHz: Number(profile.pulseHz) || 0.12,
+      brightness: Number(profile.brightness) || 1,
+      freqs: profile.freqs.slice(0, 4).map(function (value) {
+        return Number(value) || 130.81;
+      }),
+    };
+
+    if (state.musicEnabled) {
+      ambientMusic.stop();
+      ambientMusic.start();
+    }
   }
 
   /** Rich offline narrator when /api/ai/story is unavailable (static hosting). */
@@ -1126,6 +1230,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     if (useOfflineAiOnly()) {
       const offline = localEvolveThemeFromPrompt(themePromptEl.value);
+      applyMusicProfile(localComposeMusicFromPrompt(themePromptEl.value, state.worldStage));
       applyThemeData({
         source: offline.source,
         themeName: offline.themeName,
@@ -1137,7 +1242,7 @@ document.addEventListener("DOMContentLoaded", function () {
         setStoryOutput(offline.storyWhisper);
       }
       setAiStatus(
-        "Offline dream engine (static site). Full Railway deploy or __API_BASE__ unlocks live theme + art AI."
+        "Offline dream engine generated theme visuals and music mood."
       );
       updateUi();
       return;
@@ -1158,6 +1263,7 @@ document.addEventListener("DOMContentLoaded", function () {
         palette: result.palette || localTheme.palette,
         backgroundImageDataUrl: result.backgroundImageDataUrl || "",
       });
+      applyMusicProfile(result.musicProfile || localComposeMusicFromPrompt(themePromptEl.value, state.worldStage));
 
       if (result.storyWhisper) {
         setStoryOutput(result.storyWhisper);
@@ -1172,6 +1278,7 @@ document.addEventListener("DOMContentLoaded", function () {
       );
     } catch (error) {
       const offline = localEvolveThemeFromPrompt(themePromptEl.value);
+      applyMusicProfile(localComposeMusicFromPrompt(themePromptEl.value, state.worldStage));
       applyThemeData({
         source: offline.source,
         themeName: offline.themeName,
@@ -1182,7 +1289,7 @@ document.addEventListener("DOMContentLoaded", function () {
       if (offline.storyWhisper) {
         setStoryOutput(offline.storyWhisper);
       }
-      setAiStatus("Offline dream engine — deploy /api/ai/theme for live image + palette AI");
+      setAiStatus("Offline dream engine generated local image style + music mood");
     } finally {
       updateUi();
     }
@@ -1610,6 +1717,7 @@ document.addEventListener("DOMContentLoaded", function () {
   function init() {
     clampBet();
     applyThemeData(getLocalThemeData());
+    applyMusicProfile(localComposeMusicFromPrompt(themePromptEl.value, state.worldStage));
     setIdleReels();
     updateUi();
     setStoryOutput("The room is settled into a velvet glow. When you are ready, I will help the world bloom.");

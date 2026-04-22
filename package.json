@@ -3,17 +3,51 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
+  "main": "electron/main.cjs",
   "description": "A premium AI-ready slot machine for Lynne with evolving themes, bonus rounds, and secure OpenAI server-side calls.",
   "engines": {
     "node": ">=20"
   },
   "scripts": {
     "dev": "node --watch server.js",
-    "start": "node server.js"
+    "start": "node server.js",
+    "desktop": "electron .",
+    "pack:desktop": "electron-builder --dir",
+    "dist:win": "electron-builder --win nsis"
   },
   "dependencies": {
     "dotenv": "^16.6.1",
     "express": "^5.1.0",
     "openai": "^5.12.2"
+  },
+  "devDependencies": {
+    "electron": "latest",
+    "electron-builder": "latest"
+  },
+  "build": {
+    "appId": "com.lynne.aislotdeluxe",
+    "productName": "Lynne AI Slot Deluxe",
+    "asar": true,
+    "directories": {
+      "output": "desktop-dist"
+    },
+    "files": [
+      "index.html",
+      "styles.css",
+      "script.js",
+      "server.js",
+      "config.deploy.js",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    }
   }
 }
