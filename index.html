@@ -9,6 +9,7 @@
   >
   <title>Lynne's AI Slot Deluxe</title>
   <link rel="stylesheet" href="styles.css">
+  <script src="config.deploy.js"></script>
 </head>
 <body>
   <div class="page-mist" aria-hidden="true"></div>
@@ -167,19 +168,8 @@
             </div>
 
             <div id="bonus-overlay" class="bonus-overlay hidden" aria-hidden="true">
-              <video
-                id="bonus-video-bg"
-                class="bonus-video-bg"
-                playsinline
-                muted
-                loop
-                preload="metadata"
-                poster=""
-                aria-hidden="true"
-              >
-                <source src="https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.webm" type="video/webm">
-                <source src="https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4" type="video/mp4">
-              </video>
+              <!-- CSS-only ambient layer (avoids cross-origin / codec issues with external video) -->
+              <div class="bonus-bg-fx" aria-hidden="true"></div>
               <div class="bonus-modal">
                 <p id="bonus-kicker" class="bonus-kicker">Bonus Round</p>
                 <h3 id="bonus-title" class="bonus-title">Velvet Bonus Room</h3>

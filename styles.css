@@ -694,16 +694,43 @@ button:disabled {
   overflow: hidden;
 }
 
-/* CC0 sample loop (MDN) — ambient motion behind bonus UI */
-.bonus-video-bg {
+/* Ambient motion behind bonus UI — pure CSS (no external video, no codec / CORP issues) */
+.bonus-bg-fx {
   position: absolute;
   inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
   z-index: 0;
-  opacity: 0.45;
   pointer-events: none;
+  opacity: 0.55;
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 40%, color-mix(in srgb, var(--theme-glow) 45%, transparent), transparent 55%),
+    radial-gradient(ellipse 70% 50% at 85% 70%, color-mix(in srgb, var(--theme-accent) 35%, transparent), transparent 50%),
+    radial-gradient(ellipse 60% 80% at 50% 100%, rgba(120, 80, 200, 0.25), transparent 45%);
+  background-size: 120% 120%, 110% 110%, 100% 100%;
+  animation: bonus-bg-shift 14s ease-in-out infinite alternate;
+}
+
+@keyframes bonus-bg-shift {
+  0% {
+    transform: scale(1) translate(0, 0);
+    filter: hue-rotate(0deg);
+  }
+
+  50% {
+    transform: scale(1.08) translate(-2%, 1%);
+    filter: hue-rotate(12deg);
+  }
+
+  100% {
+    transform: scale(1.05) translate(2%, -1%);
+    filter: hue-rotate(-8deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bonus-bg-fx {
+    animation: none;
+    opacity: 0.35;
+  }
 }
 
 .bonus-overlay.hidden,
