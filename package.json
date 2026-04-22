@@ -9,6 +9,7 @@
     "node": ">=20"
   },
   "scripts": {
+    "build": "node -e \"console.log('No frontend build needed; using server.js directly.')\"",
     "dev": "node --watch server.js",
     "start": "node server.js",
     "desktop": "electron .",
