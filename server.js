@@ -483,7 +483,7 @@ async function generateTheme(payload) {
       size: "1536x1024",
     });
     const generatedImage = Array.isArray(response.data)
-      ? response.data.find((item) => item.b64_json)
+      ? response.data.find((item) => item.b64_json || item.url)
       : null;
 
     return {
@@ -492,9 +492,9 @@ async function generateTheme(payload) {
       caption: generatedImage
         ? "Live AI art is active. The world is evolving into a richer, dreamier bonus lounge for Lynne."
         : themedResult.caption,
-      backgroundImageDataUrl: generatedImage
+      backgroundImageDataUrl: generatedImage?.b64_json
         ? "data:image/png;base64," + generatedImage.b64_json
-        : null,
+        : generatedImage?.url || null,
     };
   } catch (error) {
     console.error("AI theme generation failed:", error);

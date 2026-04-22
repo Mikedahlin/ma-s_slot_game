@@ -258,12 +258,22 @@ document.addEventListener("DOMContentLoaded", function () {
       };
 
       const master = ctx.createGain();
-      master.gain.value = 0.032;
+      master.gain.value = 0.022;
+      const lowpass = ctx.createBiquadFilter();
+      lowpass.type = "lowpass";
+      lowpass.frequency.value = 900;
+      lowpass.Q.value = 0.7;
+      const compressor = ctx.createDynamicsCompressor();
+      compressor.threshold.value = -26;
+      compressor.knee.value = 24;
+      compressor.ratio.value = 3;
+      compressor.attack.value = 0.01;
+      compressor.release.value = 0.18;
       const pulser = ctx.createOscillator();
       pulser.type = "sine";
       pulser.frequency.value = profile.pulseHz || 0.12;
       const pulseGain = ctx.createGain();
-      pulseGain.gain.value = 0.006 * (profile.brightness || 1);
+      pulseGain.gain.value = 0.0035 * (profile.brightness || 1);
       pulser.connect(pulseGain);
       pulseGain.connect(master.gain);
       pulser.start();
@@ -274,17 +284,20 @@ document.addEventListener("DOMContentLoaded", function () {
 
       freqs.forEach(function (freq, i) {
         const osc = ctx.createOscillator();
-        osc.type = profile.wave || "sine";
+        // Sawtooth pads can sound like static on mobile speakers; keep tone smooth.
+        osc.type = profile.wave === "sawtooth" ? "triangle" : (profile.wave || "sine");
         osc.frequency.value = freq;
         const g = ctx.createGain();
-        g.gain.value = 0.22 + i * 0.06;
+        g.gain.value = 0.003 + i * 0.0018;
         osc.connect(g);
         g.connect(master);
         osc.start();
         ambientMusic.nodes.push(osc, g);
       });
-      master.connect(ctx.destination);
-      ambientMusic.nodes.push(master, pulser, pulseGain);
+      master.connect(lowpass);
+      lowpass.connect(compressor);
+      compressor.connect(ctx.destination);
+      ambientMusic.nodes.push(master, pulser, pulseGain, lowpass, compressor);
       state.musicPlaying = true;
     },
     stop: function () {
@@ -753,6 +766,14 @@ document.addEventListener("DOMContentLoaded", function () {
     );
   }
 
+  function toCssImageUrl(rawValue) {
+    const value = String(rawValue || "").trim();
+    if (!value) {
+      return "";
+    }
+    return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\)/g, "\\)");
+  }
+
   function applyThemeData(themeData) {
     const palette = themeData.palette || localThemeStages[state.worldStage - 1].palette;
 
@@ -772,15 +793,17 @@ document.addEventListener("DOMContentLoaded", function () {
     themeCaptionEl.textContent = state.themeCaption;
     setThemeSourceLabel(state.themeSource);
 
+    const localBackground = buildLocalBackground(palette);
     if (state.currentThemeImage) {
+      const safeImageUrl = toCssImageUrl(state.currentThemeImage);
       const layeredImage =
-        "linear-gradient(180deg, rgba(6, 6, 12, 0.18), rgba(5, 7, 12, 0.7)), url('" +
-        state.currentThemeImage +
-        "')";
+        localBackground +
+        ", linear-gradient(180deg, rgba(6, 6, 12, 0.18), rgba(5, 7, 12, 0.7)), url(\"" +
+        safeImageUrl +
+        "\")";
       themeSurfaceEl.style.backgroundImage = layeredImage;
       themePreviewEl.style.backgroundImage = layeredImage;
     } else {
-      const localBackground = buildLocalBackground(palette);
       themeSurfaceEl.style.backgroundImage = localBackground;
       themePreviewEl.style.backgroundImage = localBackground;
     }
