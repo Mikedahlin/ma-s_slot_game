@@ -4,6 +4,9 @@
   "private": true,
   "type": "module",
   "description": "A premium AI-ready slot machine for Lynne with evolving themes, bonus rounds, and secure OpenAI server-side calls.",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "node --watch server.js",
     "start": "node server.js"

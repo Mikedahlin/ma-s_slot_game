@@ -8,6 +8,29 @@ dotenv.config();
 
 const app = express();
 const port = Number.parseInt(process.env.PORT || "3000", 10);
+
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || "")
+  .split(",")
+  .map(function (origin) {
+    return origin.trim();
+  })
+  .filter(Boolean);
+
+if (allowedOrigins.length > 0) {
+  app.use(function (request, response, next) {
+    const requestOrigin = request.headers.origin;
+    if (requestOrigin && allowedOrigins.includes(requestOrigin)) {
+      response.setHeader("Access-Control-Allow-Origin", requestOrigin);
+      response.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+      response.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    }
+    if (request.method === "OPTIONS") {
+      response.sendStatus(204);
+      return;
+    }
+    next();
+  });
+}
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -64,6 +87,11 @@ const fallbackThemePrompts = [
 ];
 
 app.use(express.json({ limit: "2mb" }));
+
+app.get("/health", function (request, response) {
+  response.json({ ok: true, service: "lynnes-ai-slot-deluxe" });
+});
+
 app.use(express.static(__dirname));
 
 function clamp(value, minimum, maximum) {

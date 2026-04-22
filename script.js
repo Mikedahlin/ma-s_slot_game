@@ -11,6 +11,8 @@ document.addEventListener("DOMContentLoaded", function () {
   const FREE_SPIN_COUNT = 3;
   const FREE_SPIN_MULTIPLIER = 2;
   const STORY_LOG_LIMIT = 6;
+  const MYSTERY_SPARK_CHANCE = 0.07;
+  const SPARK_BONUS_EVERY_N_SPINS = 12;
 
   const symbols = [
     { id: "cherry", name: "Cherry", icon: "🍒", weight: 32, multiplier: 2 },
@@ -108,6 +110,7 @@ document.addEventListener("DOMContentLoaded", function () {
     themeCaption: localThemeStages[0].caption,
     themeSource: "local",
     bonusMoments: 0,
+    spinCount: 0,
   };
 
   const balanceEl = document.getElementById("balance");
@@ -138,7 +141,6 @@ document.addEventListener("DOMContentLoaded", function () {
   const voiceGuideEl = document.getElementById("voice-guide");
   const themeButton = document.getElementById("theme-button");
   const guideButton = document.getElementById("guide-button");
-  const bonusVideoBgEl = document.getElementById("bonus-video-bg");
   const spinButton = document.getElementById("spin-button");
   const resetButton = document.getElementById("reset-button");
   const betDownButton = document.getElementById("bet-down");
@@ -398,14 +400,6 @@ document.addEventListener("DOMContentLoaded", function () {
   function setBonusOverlayVisible(isVisible) {
     bonusOverlayEl.classList.toggle("hidden", !isVisible);
     bonusOverlayEl.setAttribute("aria-hidden", isVisible ? "false" : "true");
-    if (bonusVideoBgEl) {
-      if (isVisible) {
-        bonusVideoBgEl.play().catch(function () {});
-      } else {
-        bonusVideoBgEl.pause();
-        bonusVideoBgEl.currentTime = 0;
-      }
-    }
   }
 
   function resetBonusOverlay() {
@@ -793,6 +787,128 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   }
 
+  /** Short line after each spin so the story panel always moves (unless a bigger guide moment just ran). */
+  function localSpinFlavor(result, usingFreeSpin, outcomeIds) {
+    const room = state.themeName;
+    const freeBit = usingFreeSpin ? " Free-spin moonlight still lingers on the glass." : "";
+
+    if (result.kind === "none") {
+      const faces = outcomeIds
+        .map(function (id) {
+          return symbolMap[id] ? symbolMap[id].icon : "?";
+        })
+        .join(" ");
+      return (
+        "The reels exhaled " +
+        faces +
+        " across the payline in " +
+        room +
+        "." +
+        freeBit +
+        " Lynne, even a quiet spin nudges the story forward — try once more."
+      );
+    }
+
+    if (result.kind === "two") {
+      const sym = symbolMap[result.symbolId];
+      const name = sym ? sym.name : "symbol";
+      return (
+        "Two matching " +
+        name +
+        " symbols leaned together in " +
+        room +
+        " — close enough to feel lucky." +
+        freeBit +
+        " The next beat might lock all three."
+      );
+    }
+
+    if (result.kind === "three") {
+      const sym = symbolMap[result.symbolId];
+      const name = sym ? sym.name : "symbol";
+      return (
+        "Three " +
+        name +
+        " symbols lined up like a tiny headline in " +
+        room +
+        ". " +
+        result.description +
+        " paid out — the Lucky Guide is grinning." +
+        freeBit
+      );
+    }
+
+    return (
+      "Something unusual settled on the reels in " +
+      room +
+      ". " +
+      (result.description || "The lounge keeps its secrets.") +
+      freeBit
+    );
+  }
+
+  function shouldTriggerSparkBonus(result) {
+    if (
+      result.kind === "three" &&
+      (result.symbolId === "diamond" || result.symbolId === "seven" || result.symbolId === "bell")
+    ) {
+      return false;
+    }
+    if (state.spinCount > 0 && state.spinCount % SPARK_BONUS_EVERY_N_SPINS === 0) {
+      return true;
+    }
+    return Math.random() < MYSTERY_SPARK_CHANCE;
+  }
+
+  function buildMysterySparkOptions(baseBet) {
+    const pool = shuffle([2, 3, 4, 5, 6, 7, 8]);
+    const labels = ["Amber", "Rose", "Sky"];
+    return pool.slice(0, 3).map(function (m, i) {
+      const credits = baseBet * m;
+      return {
+        title: labels[i] + " Spark",
+        subtitle: "Tap to reveal your surprise",
+        rewardText: "+" + formatNumber(credits) + " credits",
+        credits: credits,
+        summaryText:
+          "The " +
+          labels[i].toLowerCase() +
+          " spark paid " +
+          formatNumber(credits) +
+          " credits (" +
+          m +
+          "× bet).",
+      };
+    });
+  }
+
+  async function runMysterySparkBonus(baseBet) {
+    createExplosionBurst(["#fff0a3", "#ff6ec7", "#7df9ff", "#ffffff"]);
+    sound.bonus();
+    showMessage("Mystery Spark! Pick a lucky glimmer.", "bonus");
+
+    const reward = await presentSinglePickBonus({
+      kicker: "Mystery Spark",
+      title: "Pick one glowing spark",
+      description:
+        "A surprise mini-bonus between bigger moments — one tap, instant coins. The lounge saves these for lucky timing.",
+      summary: "One pick only. Every spark pays.",
+      options: buildMysterySparkOptions(baseBet),
+    });
+
+    state.balance += reward.credits;
+    state.bonusMoments += 1;
+    showMessage(reward.summaryText, "bonus");
+    setStoryOutput(
+      "✨ Mystery Spark danced through " +
+        state.themeName +
+        ". " +
+        reward.summaryText +
+        " Little bonuses like this keep the night exciting even when the rare triples hide."
+    );
+    await delay(200);
+  }
+
   function setIdleReels() {
     const reelHeight = getReelHeight();
 
@@ -928,7 +1044,34 @@ document.addEventListener("DOMContentLoaded", function () {
     };
   }
 
-  async function fetchJson(url, body) {
+  function apiBaseUrl() {
+    if (typeof window !== "undefined" && window.__API_BASE__) {
+      return String(window.__API_BASE__).replace(/\/$/, "");
+    }
+    return "";
+  }
+
+  /** GitHub Pages / file:// have no /api — avoid failed fetches and use offline copy immediately. */
+  function useOfflineAiOnly() {
+    if (apiBaseUrl()) {
+      return false;
+    }
+    if (typeof window === "undefined" || !window.location) {
+      return false;
+    }
+    const host = window.location.hostname || "";
+    if (host.indexOf("github.io") !== -1) {
+      return true;
+    }
+    if (window.location.protocol === "file:") {
+      return true;
+    }
+    return false;
+  }
+
+  async function fetchJson(urlPath, body) {
+    const base = apiBaseUrl();
+    const url = base ? base + urlPath : urlPath;
     const response = await fetch(url, {
       method: "POST",
       headers: {
@@ -958,6 +1101,14 @@ document.addEventListener("DOMContentLoaded", function () {
       extra || {}
     );
 
+    if (useOfflineAiOnly()) {
+      setStoryOutput(localGuideNarrative(eventType, payload));
+      setAiStatus(
+        "Offline guide (static site). Set __API_BASE__ to your Railway URL or play the full app on Railway for live AI."
+      );
+      return;
+    }
+
     try {
       const result = await fetchJson("/api/ai/story", payload);
       setStoryOutput(result.message);
@@ -972,6 +1123,25 @@ document.addEventListener("DOMContentLoaded", function () {
     const localTheme = getLocalThemeData();
     setAiStatus("Generating the next bonus world...");
     themeButton.disabled = true;
+
+    if (useOfflineAiOnly()) {
+      const offline = localEvolveThemeFromPrompt(themePromptEl.value);
+      applyThemeData({
+        source: offline.source,
+        themeName: offline.themeName,
+        caption: offline.caption,
+        palette: offline.palette,
+        backgroundImageDataUrl: offline.backgroundImageDataUrl || "",
+      });
+      if (offline.storyWhisper) {
+        setStoryOutput(offline.storyWhisper);
+      }
+      setAiStatus(
+        "Offline dream engine (static site). Full Railway deploy or __API_BASE__ unlocks live theme + art AI."
+      );
+      updateUi();
+      return;
+    }
 
     try {
       const result = await fetchJson("/api/ai/theme", {
@@ -1284,6 +1454,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     state.spinning = true;
+    state.spinCount += 1;
     clearWinningHighlights();
 
     const usingFreeSpin = state.freeSpins > 0;
@@ -1361,6 +1532,17 @@ document.addEventListener("DOMContentLoaded", function () {
       );
     }
 
+    const premiumTriple =
+      result.kind === "three" &&
+      (result.symbolId === "diamond" || result.symbolId === "seven" || result.symbolId === "bell");
+    if (payoutMultiplier < BIG_WIN_MULTIPLIER && !premiumTriple) {
+      setStoryOutput(localSpinFlavor(result, usingFreeSpin, outcomeIds));
+    }
+
+    if (shouldTriggerSparkBonus(result)) {
+      await runMysterySparkBonus(wager);
+    }
+
     if (state.freeSpins === 0) {
       state.freeSpinMultiplier = FREE_SPIN_MULTIPLIER;
       state.freeSpinLabel = "Moonlight x2";
@@ -1410,6 +1592,7 @@ document.addEventListener("DOMContentLoaded", function () {
     state.freeSpinLabel = "Moonlight x2";
     state.worldStage = 1;
     state.bonusMoments = 0;
+    state.spinCount = 0;
     state.musicEnabled = false;
     ambientMusic.stop();
     clearWinningHighlights();
@@ -1431,7 +1614,11 @@ document.addEventListener("DOMContentLoaded", function () {
     updateUi();
     setStoryOutput("The room is settled into a velvet glow. When you are ready, I will help the world bloom.");
     showMessage("Welcome to Lynne's AI Slot Deluxe. Let the room glow, then press Spin.", "");
-    setAiStatus("Offline AI + music ready (optional /api routes for live models)");
+    setAiStatus(
+      useOfflineAiOnly()
+        ? "Offline guide on this host — spins still narrate; Railway full deploy = live AI"
+        : "Offline AI + music ready (optional /api routes for live models)"
+    );
 
     spinButton.addEventListener("click", playSpin);
     resetButton.addEventListener("click", resetGame);
