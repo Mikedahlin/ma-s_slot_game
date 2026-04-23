@@ -119,13 +119,33 @@ function buildPalette(stage) {
   return palettes[clamp(stage, 1, palettes.length) - 1];
 }
 
-function buildFallbackTheme({ themePrompt, worldStage, reason }) {
-  const palette = buildPalette(worldStage);
+function pickThemeDirection({ themePrompt, worldStage, currentTheme, reason }) {
   const cleanedPrompt = String(themePrompt || "").trim();
-  const sourcePrompt =
-    cleanedPrompt.length > 0
-      ? cleanedPrompt
-      : fallbackThemePrompts[(worldStage - 1) % fallbackThemePrompts.length];
+  if (cleanedPrompt.length > 0) {
+    return cleanedPrompt;
+  }
+
+  const enhancers = [
+    "moonlit velvet accents",
+    "sparkling ribbon details",
+    "golden lantern reflections",
+    "diamond mist highlights",
+    "rose-gold shimmer trails",
+    "starlight glass textures",
+  ];
+
+  const basePrompt = fallbackThemePrompts[(worldStage - 1) % fallbackThemePrompts.length];
+  const current = String(currentTheme || "").toLowerCase();
+  const reasonText = String(reason || "").toLowerCase();
+  const basis = Date.now() + current.length + reasonText.length * 7 + worldStage * 11;
+  const enhancer = enhancers[Math.abs(basis) % enhancers.length];
+
+  return basePrompt + ", " + enhancer;
+}
+
+function buildFallbackTheme({ themePrompt, worldStage, reason, currentTheme }) {
+  const palette = buildPalette(worldStage);
+  const sourcePrompt = pickThemeDirection({ themePrompt, worldStage, currentTheme, reason });
 
   return {
     source: "fallback",
@@ -145,6 +165,57 @@ function buildFallbackTheme({ themePrompt, worldStage, reason }) {
     palette,
     backgroundImageDataUrl: null,
     reason,
+    musicProfile: buildFallbackMusicProfile(themePrompt, worldStage),
+  };
+}
+
+function buildFallbackMusicProfile(themePrompt, worldStage) {
+  const text = String(themePrompt || "").toLowerCase();
+  const pulseHz = 0.1 + clamp(worldStage, 1, 5) * 0.015;
+
+  if (/moon|night|velvet|midnight|noir/.test(text)) {
+    return {
+      name: "Midnight Velvet Drift",
+      wave: "sine",
+      pulseHz,
+      brightness: 0.9,
+      freqs: [130.81, 155.56, 196.0],
+    };
+  }
+  if (/gold|sun|amber|lantern|honey/.test(text)) {
+    return {
+      name: "Golden Lantern Waltz",
+      wave: "triangle",
+      pulseHz: pulseHz + 0.03,
+      brightness: 1.05,
+      freqs: [146.83, 185.0, 220.0],
+    };
+  }
+  if (/ocean|aqua|blue|teal|tide/.test(text)) {
+    return {
+      name: "Tidal Glass Echo",
+      wave: "sine",
+      pulseHz: pulseHz + 0.02,
+      brightness: 0.95,
+      freqs: [110.0, 146.83, 174.61],
+    };
+  }
+  if (/garden|rose|flower|bloom|petal/.test(text)) {
+    return {
+      name: "Rose Garden Lilt",
+      wave: "triangle",
+      pulseHz: pulseHz + 0.04,
+      brightness: 1.1,
+      freqs: [174.61, 220.0, 261.63],
+    };
+  }
+
+  return {
+    name: "Velvet Night Flow",
+    wave: "sine",
+    pulseHz,
+    brightness: 0.95,
+    freqs: [130.81, 164.81, 196.0],
   };
 }
 
@@ -235,38 +306,33 @@ function buildGroundedStoryPrompt(payload, braveContext) {
 }
 
 function buildThemeImagePrompt({ themePrompt, worldStage, reason, currentTheme }) {
-  const cleanPrompt = String(themePrompt || "").trim();
-  const basePrompt =
-    cleanPrompt.length > 0
-      ? cleanPrompt
-      : fallbackThemePrompts[(worldStage - 1) % fallbackThemePrompts.length];
+  const basePrompt = pickThemeDirection({ themePrompt, worldStage, currentTheme, reason });
 
   return [
-    "Create a premium cozy slot-game background for Lynne.",
+    "Create a premium Las Vegas-style slot-game background for Lynne.",
     "Theme direction: " + basePrompt + ".",
     "Current theme name: " + (currentTheme || "Velvet Starlight Lounge") + ".",
     "Evolution stage: " + worldStage + ".",
     "Reason for evolution: " + reason + ".",
-    "Art direction: warm terracotta, velvet casino textures, magical bonus-room energy, soft gold lighting, sparkling details, dreamy premium mobile game polish.",
+    "Art direction: rich Vegas floor glamour, neon jewel glow, cinematic jackpot lighting, polished chrome trims, velvet casino textures, premium mobile game clarity and depth.",
     "No text, no watermark, no logo, no characters in the foreground, landscape composition.",
   ].join(" ");
 }
 
 function buildThemeMetadataPrompt({ themePrompt, worldStage, reason, currentTheme }) {
-  const cleanPrompt = String(themePrompt || "").trim();
-  const basePrompt =
-    cleanPrompt.length > 0
-      ? cleanPrompt
-      : fallbackThemePrompts[(worldStage - 1) % fallbackThemePrompts.length];
+  const basePrompt = pickThemeDirection({ themePrompt, worldStage, currentTheme, reason });
 
   return [
-    "Create a premium evolving slot-world theme for Lynne.",
+    "Create a premium evolving Las Vegas slot-world theme for Lynne.",
     "Return JSON only.",
-    "Keys: themeName, caption, storyWhisper, accent, accentSoft, glow, glowSoft, shadow, surface.",
+    "Keys: themeName, caption, storyWhisper, accent, accentSoft, glow, glowSoft, shadow, surface, musicMood, musicWave, musicTempo, musicRoot.",
     "Use cozy, premium, warm casino fantasy language.",
     "Caption under 28 words.",
     "storyWhisper under 34 words.",
     "All colors must be valid hex codes.",
+    "musicWave must be one of: sine, triangle, sawtooth.",
+    "musicTempo is a number from 0.08 to 0.22 (for soft ambient pulsing).",
+    "musicRoot must be one of: C, D, E, F, G, A, B.",
     "Current theme: " + (currentTheme || "Velvet Starlight Lounge") + ".",
     "New theme direction: " + basePrompt + ".",
     "World stage: " + worldStage + ".",
@@ -437,8 +503,40 @@ async function generateThemeMetadata(payload, fallbackTheme) {
     return fallbackTheme;
   } catch (error) {
     console.error("AI theme metadata generation failed:", error);
-    return fallbackTheme;
+    return {
+      theme: fallbackTheme,
+      textError: summarizeAiError(error),
+    };
   }
+}
+
+function toMusicProfile(rawMusic, fallbackMusic) {
+  const rootMap = {
+    C: [130.81, 164.81, 196.0],
+    D: [146.83, 185.0, 220.0],
+    E: [164.81, 207.65, 246.94],
+    F: [174.61, 220.0, 261.63],
+    G: [196.0, 246.94, 293.66],
+    A: [220.0, 277.18, 329.63],
+    B: [246.94, 311.13, 369.99],
+  };
+
+  const normalizedRoot = String(rawMusic?.root || "")
+    .trim()
+    .toUpperCase();
+  const freqs = rootMap[normalizedRoot] || fallbackMusic.freqs;
+  const wave = ["sine", "triangle", "sawtooth"].includes(rawMusic?.wave)
+    ? rawMusic.wave
+    : fallbackMusic.wave;
+  const pulseHz = clamp(Number(rawMusic?.pulseHz) || fallbackMusic.pulseHz || 0.12, 0.08, 0.22);
+
+  return {
+    name: String(rawMusic?.mood || fallbackMusic.name || "Dream Lounge Mix").slice(0, 42),
+    wave,
+    pulseHz,
+    brightness: fallbackMusic.brightness || 1,
+    freqs,
+  };
 }
 
 async function generateStory(payload) {
@@ -447,6 +545,7 @@ async function generateStory(payload) {
     return {
       source: "fallback",
       message: buildFallbackStory(payload),
+      fallbackReason: "status:missing_key,code:openai_not_configured",
     };
   }
 
@@ -485,6 +584,7 @@ async function generateStory(payload) {
     return {
       source: "fallback",
       message: buildFallbackStory(payload),
+      fallbackReason: summarizeAiError(error),
     };
   }
 }
@@ -537,7 +637,10 @@ async function generateTheme(payload) {
     };
   } catch (error) {
     console.error("AI theme generation failed:", error);
-    return themedResult;
+    return {
+      ...themedResult,
+      fallbackReason: summarizeAiError(error),
+    };
   }
 }
 

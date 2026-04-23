@@ -124,6 +124,13 @@ document.addEventListener("DOMContentLoaded", function () {
     themeSource: "local",
     bonusMoments: 0,
     spinCount: 0,
+    musicProfile: {
+      name: "Velvet Night Flow",
+      wave: "sine",
+      pulseHz: 0.12,
+      freqs: [130.81, 164.81, 196.0],
+      brightness: 0.95,
+    },
   };
 
   const balanceEl = document.getElementById("balance");
@@ -149,6 +156,7 @@ document.addEventListener("DOMContentLoaded", function () {
   const bonusChoicesEl = document.getElementById("bonus-choices");
   const bonusSummaryEl = document.getElementById("bonus-summary");
   const bonusCloseButton = document.getElementById("bonus-close");
+  const momLoveSignEl = document.getElementById("mom-love-sign");
   const soundButton = document.getElementById("sound-button");
   const musicButton = document.getElementById("music-button");
   const voiceGuideEl = document.getElementById("voice-guide");
@@ -340,22 +348,55 @@ document.addEventListener("DOMContentLoaded", function () {
       if (!ctx) {
         return;
       }
+
+      const profile = state.musicProfile || {
+        wave: "sine",
+        pulseHz: 0.12,
+        freqs: [130.81, 164.81, 196.0],
+        brightness: 1,
+      };
+
       const master = ctx.createGain();
-      master.gain.value = 0.032;
-      const freqs = [130.81, 164.81, 196.0];
+      master.gain.value = 0.022;
+      const lowpass = ctx.createBiquadFilter();
+      lowpass.type = "lowpass";
+      lowpass.frequency.value = 900;
+      lowpass.Q.value = 0.7;
+      const compressor = ctx.createDynamicsCompressor();
+      compressor.threshold.value = -26;
+      compressor.knee.value = 24;
+      compressor.ratio.value = 3;
+      compressor.attack.value = 0.01;
+      compressor.release.value = 0.18;
+      const pulser = ctx.createOscillator();
+      pulser.type = "sine";
+      pulser.frequency.value = profile.pulseHz || 0.12;
+      const pulseGain = ctx.createGain();
+      pulseGain.gain.value = 0.0035 * (profile.brightness || 1);
+      pulser.connect(pulseGain);
+      pulseGain.connect(master.gain);
+      pulser.start();
+
+      const freqs = Array.isArray(profile.freqs) && profile.freqs.length >= 2
+        ? profile.freqs
+        : [130.81, 164.81, 196.0];
+
       freqs.forEach(function (freq, i) {
         const osc = ctx.createOscillator();
-        osc.type = "sine";
+        // Sawtooth pads can sound like static on mobile speakers; keep tone smooth.
+        osc.type = profile.wave === "sawtooth" ? "triangle" : (profile.wave || "sine");
         osc.frequency.value = freq;
         const g = ctx.createGain();
-        g.gain.value = 0.22 + i * 0.06;
+        g.gain.value = 0.003 + i * 0.0018;
         osc.connect(g);
         g.connect(master);
         osc.start();
         ambientMusic.nodes.push(osc, g);
       });
-      master.connect(ctx.destination);
-      ambientMusic.nodes.push(master);
+      master.connect(lowpass);
+      lowpass.connect(compressor);
+      compressor.connect(ctx.destination);
+      ambientMusic.nodes.push(master, pulser, pulseGain, lowpass, compressor);
       state.musicPlaying = true;
     },
     stop: function () {
@@ -458,11 +499,18 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function setStoryOutput(text) {
-    storyOutputEl.textContent = text;
-    addStoryMoment(text);
+    const collapsedText = String(text || "")
+      .replace(/\s+/g, " ")
+      .trim();
+    const safeText =
+      collapsedText.length > 320
+        ? collapsedText.slice(0, 317).trimEnd() + "..."
+        : collapsedText;
+    storyOutputEl.textContent = safeText;
+    addStoryMoment(safeText);
     if (voiceGuideEl && voiceGuideEl.checked && window.speechSynthesis) {
       window.speechSynthesis.cancel();
-      const line = new SpeechSynthesisUtterance(text);
+      const line = new SpeechSynthesisUtterance(safeText);
       line.rate = 0.96;
       line.pitch = 1.05;
       window.speechSynthesis.speak(line);
@@ -470,7 +518,9 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function setAiStatus(text) {
-    aiStatusEl.textContent = text;
+    if (aiStatusEl) {
+      aiStatusEl.textContent = text;
+    }
   }
 
   function setThemeSourceLabel(source) {
@@ -482,7 +532,9 @@ document.addEventListener("DOMContentLoaded", function () {
       local: "Visual mode: local",
     };
     const prettySource = sourceLabels[source] || "Visual mode: local";
-    themeSourceEl.textContent = prettySource;
+    if (themeSourceEl) {
+      themeSourceEl.textContent = prettySource;
+    }
   }
 
   function shuffle(items) {
@@ -653,13 +705,16 @@ document.addEventListener("DOMContentLoaded", function () {
     const centerX = 50;
     const centerY = 45;
 
-    for (let index = 0; index < 22; index += 1) {
+    for (let index = 0; index < count; index += 1) {
       const particleEl = document.createElement("span");
-      const angle = (Math.PI * 2 * index) / 22;
-      const distance = 90 + Math.random() * 130;
+      const angle = (Math.PI * 2 * index) / count;
+      const distance = minDistance + Math.random() * Math.max(10, maxDistance - minDistance);
       const color = colors[index % colors.length];
 
       particleEl.className = "particle";
+      particleEl.style.width = size + "px";
+      particleEl.style.height = size + "px";
+      particleEl.style.animationDuration = durationMs + "ms";
       particleEl.style.left = centerX + "%";
       particleEl.style.top = centerY + "%";
       particleEl.style.setProperty("--dx", Math.cos(angle) * distance + "px");
@@ -670,8 +725,88 @@ document.addEventListener("DOMContentLoaded", function () {
 
       window.setTimeout(function () {
         particleEl.remove();
-      }, 900);
+      }, durationMs + 120);
     }
+  }
+
+  function addWinFlash(level) {
+    const flashEl = document.createElement("span");
+    flashEl.className = "win-flash " + (level === "big" ? "win-flash--big" : "win-flash--small");
+    effectsLayerEl.appendChild(flashEl);
+
+    window.setTimeout(function () {
+      flashEl.remove();
+    }, level === "big" ? 1200 : 900);
+  }
+
+  function showMomLoveSign() {
+    if (!momLoveSignEl) {
+      return;
+    }
+    momLoveSignEl.classList.remove("is-visible");
+    void momLoveSignEl.offsetWidth;
+    momLoveSignEl.classList.add("is-visible");
+    window.setTimeout(function () {
+      momLoveSignEl.classList.remove("is-visible");
+    }, 2600);
+  }
+
+  function playWinStinger(level) {
+    if (!state.soundEnabled) {
+      return;
+    }
+
+    if (level === "big") {
+      sound.tone(330, 0.16, "triangle", 0.07, 0);
+      sound.tone(440, 0.2, "triangle", 0.07, 0.08);
+      sound.tone(554, 0.22, "sawtooth", 0.08, 0.18);
+      sound.tone(659, 0.26, "sawtooth", 0.08, 0.3);
+      sound.tone(880, 0.28, "triangle", 0.08, 0.44);
+      return;
+    }
+
+    sound.tone(392, 0.13, "triangle", 0.06, 0);
+    sound.tone(523, 0.15, "triangle", 0.06, 0.06);
+    sound.tone(659, 0.18, "sine", 0.06, 0.14);
+  }
+
+  function triggerWinExplosion(level) {
+    if (level === "big") {
+      machineEl.classList.add("is-jackpot");
+      createExplosionBurst(["#ffe88a", "#ff4eb5", "#54e7ff", "#ffffff", "#ff8f66"], {
+        count: 72,
+        minDistance: 130,
+        maxDistance: 250,
+        durationMs: 1400,
+        size: 16,
+      });
+      window.setTimeout(function () {
+        createExplosionBurst(["#ffe88a", "#ff4eb5", "#54e7ff", "#ffffff"], {
+          count: 56,
+          minDistance: 90,
+          maxDistance: 220,
+          durationMs: 1200,
+          size: 12,
+        });
+      }, 180);
+      addWinFlash("big");
+      playWinStinger("big");
+      showMomLoveSign();
+      window.setTimeout(function () {
+        machineEl.classList.remove("is-jackpot");
+      }, 1700);
+      return;
+    }
+
+    createExplosionBurst(["#5ff0af", "#54e7ff", "#ffcf63", "#ffffff"], {
+      count: 42,
+      minDistance: 95,
+      maxDistance: 180,
+      durationMs: 980,
+      size: 12,
+    });
+    addWinFlash("small");
+    playWinStinger("small");
   }
 
   function pulseBigWin() {
@@ -742,6 +877,14 @@ document.addEventListener("DOMContentLoaded", function () {
     );
   }
 
+  function toCssImageUrl(rawValue) {
+    const value = String(rawValue || "").trim();
+    if (!value) {
+      return "";
+    }
+    return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\)/g, "\\)");
+  }
+
   function applyThemeData(themeData) {
     const palette = themeData.palette || localThemeStages[state.worldStage - 1].palette;
 
@@ -761,15 +904,17 @@ document.addEventListener("DOMContentLoaded", function () {
     themeCaptionEl.textContent = state.themeCaption;
     setThemeSourceLabel(state.themeSource);
 
+    const localBackground = buildLocalBackground(palette);
     if (state.currentThemeImage) {
+      const safeImageUrl = toCssImageUrl(state.currentThemeImage);
       const layeredImage =
-        "linear-gradient(180deg, rgba(6, 6, 12, 0.18), rgba(5, 7, 12, 0.7)), url('" +
-        state.currentThemeImage +
-        "')";
+        localBackground +
+        ", linear-gradient(180deg, rgba(6, 6, 12, 0.18), rgba(5, 7, 12, 0.7)), url(\"" +
+        safeImageUrl +
+        "\")";
       themeSurfaceEl.style.backgroundImage = layeredImage;
       themePreviewEl.style.backgroundImage = layeredImage;
     } else {
-      const localBackground = buildLocalBackground(palette);
       themeSurfaceEl.style.backgroundImage = localBackground;
       themePreviewEl.style.backgroundImage = localBackground;
     }
@@ -854,6 +999,76 @@ document.addEventListener("DOMContentLoaded", function () {
         themeName +
         ". The air tastes like possibility.",
     };
+  }
+
+  function localComposeMusicFromPrompt(prompt, worldStage) {
+    const text = String(prompt || "").toLowerCase();
+    const stagePulse = 0.1 + worldStage * 0.015;
+
+    if (/moon|night|velvet|midnight|noir/.test(text)) {
+      return {
+        name: "Midnight Velvet Drift",
+        wave: "sine",
+        pulseHz: stagePulse,
+        freqs: [130.81, 155.56, 196.0],
+        brightness: 0.9,
+      };
+    }
+    if (/gold|sun|amber|lantern|honey/.test(text)) {
+      return {
+        name: "Golden Lantern Waltz",
+        wave: "triangle",
+        pulseHz: stagePulse + 0.03,
+        freqs: [146.83, 185.0, 220.0],
+        brightness: 1.05,
+      };
+    }
+    if (/ocean|aqua|blue|teal|tide/.test(text)) {
+      return {
+        name: "Tidal Glass Echo",
+        wave: "sine",
+        pulseHz: stagePulse + 0.02,
+        freqs: [110.0, 146.83, 174.61],
+        brightness: 0.95,
+      };
+    }
+    if (/garden|rose|flower|bloom|petal/.test(text)) {
+      return {
+        name: "Rose Garden Lilt",
+        wave: "triangle",
+        pulseHz: stagePulse + 0.04,
+        freqs: [174.61, 220.0, 261.63],
+        brightness: 1.1,
+      };
+    }
+
+    return {
+      name: "Velvet Night Flow",
+      wave: "sine",
+      pulseHz: stagePulse,
+      freqs: [130.81, 164.81, 196.0],
+      brightness: 0.95,
+    };
+  }
+
+  function applyMusicProfile(profile) {
+    if (!profile || !Array.isArray(profile.freqs) || profile.freqs.length < 2) {
+      return;
+    }
+    state.musicProfile = {
+      name: profile.name || "Dream Lounge Mix",
+      wave: profile.wave || "sine",
+      pulseHz: Number(profile.pulseHz) || 0.12,
+      brightness: Number(profile.brightness) || 1,
+      freqs: profile.freqs.slice(0, 4).map(function (value) {
+        return Number(value) || 130.81;
+      }),
+    };
+
+    if (state.musicEnabled) {
+      ambientMusic.stop();
+      ambientMusic.start();
+    }
   }
 
   /** Rich offline narrator when /api/ai/story is unavailable (static hosting). */
@@ -1247,6 +1462,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     if (useOfflineAiOnly()) {
       const offline = localEvolveThemeFromPrompt(themePromptEl.value);
+      applyMusicProfile(localComposeMusicFromPrompt(themePromptEl.value, state.worldStage));
       applyThemeData({
         source: offline.source,
         themeName: offline.themeName,
@@ -1258,7 +1474,7 @@ document.addEventListener("DOMContentLoaded", function () {
         setStoryOutput(offline.storyWhisper);
       }
       setAiStatus(
-        "Offline dream engine (static site). Full Railway deploy or __API_BASE__ unlocks live theme + art AI."
+        "Offline dream engine generated theme visuals and music mood."
       );
       updateUi();
       return;
@@ -1279,6 +1495,7 @@ document.addEventListener("DOMContentLoaded", function () {
         palette: result.palette || localTheme.palette,
         backgroundImageDataUrl: result.backgroundImageDataUrl || "",
       });
+      applyMusicProfile(result.musicProfile || localComposeMusicFromPrompt(themePromptEl.value, state.worldStage));
 
       if (result.storyWhisper) {
         setStoryOutput(result.storyWhisper);
@@ -1293,6 +1510,7 @@ document.addEventListener("DOMContentLoaded", function () {
       );
     } catch (error) {
       const offline = localEvolveThemeFromPrompt(themePromptEl.value);
+      applyMusicProfile(localComposeMusicFromPrompt(themePromptEl.value, state.worldStage));
       applyThemeData({
         source: offline.source,
         themeName: offline.themeName,
@@ -1303,7 +1521,7 @@ document.addEventListener("DOMContentLoaded", function () {
       if (offline.storyWhisper) {
         setStoryOutput(offline.storyWhisper);
       }
-      setAiStatus("Offline dream engine — deploy /api/ai/theme for live image + palette AI");
+      setAiStatus("Offline dream engine generated local image style + music mood");
     } finally {
       updateUi();
     }
@@ -1561,6 +1779,9 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     sound.click();
+    if (state.musicEnabled && !state.musicPlaying) {
+      ambientMusic.start();
+    }
 
     if (state.bet <= 0) {
       showMessage("Your bet is too low. Raise it to at least 10 credits.", "loss");
@@ -1617,7 +1838,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
       if (payoutMultiplier >= BIG_WIN_MULTIPLIER) {
         pulseBigWin();
-        createExplosionBurst(["#ffcf63", "#ff4eb5", "#54e7ff", "#ffffff"]);
+        triggerWinExplosion("big");
         sound.bigWin();
         showMessage(
           "Big win! " + result.description + " paid " + formatNumber(baseWinnings) + " credits.",
@@ -1628,7 +1849,7 @@ document.addEventListener("DOMContentLoaded", function () {
         });
         await maybeAdvanceWorldStage("big win evolution");
       } else {
-        createExplosionBurst(["#5ff0af", "#54e7ff", "#ffcf63"]);
+        triggerWinExplosion("small");
         sound.smallWin();
         showMessage(
           "Nice win! " + result.description + " paid " + formatNumber(baseWinnings) + " credits.",
@@ -1700,6 +1921,32 @@ document.addEventListener("DOMContentLoaded", function () {
     updateUi();
   }
 
+  function unlockAudioOnFirstGesture() {
+    let unlocked = false;
+
+    function unlock() {
+      if (unlocked) {
+        return;
+      }
+      unlocked = true;
+
+      const ctx = ensureAudioContext();
+      if (ctx && ctx.state === "suspended") {
+        ctx.resume().catch(function () {});
+      }
+
+      if (state.musicEnabled && !state.musicPlaying) {
+        ambientMusic.start();
+      }
+
+      window.removeEventListener("pointerdown", unlock);
+      window.removeEventListener("keydown", unlock);
+    }
+
+    window.addEventListener("pointerdown", unlock);
+    window.addEventListener("keydown", unlock);
+  }
+
   function resetGame() {
     if (state.spinning) {
       return;
@@ -1714,7 +1961,7 @@ document.addEventListener("DOMContentLoaded", function () {
     state.worldStage = 1;
     state.bonusMoments = 0;
     state.spinCount = 0;
-    state.musicEnabled = false;
+    state.musicEnabled = true;
     ambientMusic.stop();
     clearWinningHighlights();
     effectsLayerEl.innerHTML = "";
@@ -1732,6 +1979,7 @@ document.addEventListener("DOMContentLoaded", function () {
     await loadRuntimeDefaults();
     clampBet();
     applyThemeData(getLocalThemeData());
+    applyMusicProfile(localComposeMusicFromPrompt(themePromptEl.value, state.worldStage));
     setIdleReels();
     updateUi();
     setStoryOutput("The room is settled into a velvet glow. When you are ready, I will help the world bloom.");
@@ -1747,6 +1995,7 @@ document.addEventListener("DOMContentLoaded", function () {
         toggleMusic();
       });
     }
+    unlockAudioOnFirstGesture();
     themeButton.addEventListener("click", function () {
       sound.click();
       evolveTheme("manual theme request from Lynne");
