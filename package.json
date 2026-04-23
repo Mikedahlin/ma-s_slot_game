@@ -12,6 +12,9 @@
     "build": "node -e \"console.log('No frontend build needed; using server.js directly.')\"",
     "dev": "node --watch server.js",
     "start": "node server.js",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
     "desktop": "electron .",
     "pack:desktop": "electron-builder --dir",
     "dist:win": "electron-builder --win nsis"
@@ -19,9 +22,11 @@
   "dependencies": {
     "dotenv": "^16.6.1",
     "express": "^5.1.0",
-    "openai": "^5.12.2"
+    "openai": "^5.12.2",
+    "playwright-core": "latest"
   },
   "devDependencies": {
+    "@playwright/test": "latest",
     "electron": "latest",
     "electron-builder": "latest"
   },

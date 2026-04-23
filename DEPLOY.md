@@ -48,6 +48,9 @@ Railway runs `npm start` → `node server.js`, which serves the static files **a
    | `OPENAI_API_KEY` | Your OpenAI API key (required for live AI; optional for fallback-only mode) |
    | `OPENAI_TEXT_MODEL` | Optional, e.g. `gpt-5-mini` |
    | `OPENAI_IMAGE_CONTROLLER_MODEL` | Optional, e.g. `gpt-5` |
+   | `STEEL_API_KEY` | Required if using `/api/agent/steel/*` endpoints for AI browser tasks |
+   | `STEEL_PROJECT_ID` | Optional Steel project scoping |
+   | `STEEL_WS_ENDPOINT` | Optional, defaults to `wss://connect.steel.dev` |
 
    Railway injects **`PORT`** — do not set it manually unless you know what you’re doing.
 

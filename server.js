@@ -3,6 +3,7 @@ import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
 import OpenAI from "openai";
+import { chromium } from "playwright-core";
 
 dotenv.config();
 
@@ -100,6 +101,68 @@ const imageControllerModel = normalizeImageModelChoice(
   process.env.OPENAI_IMAGE_MODEL || process.env.OPENAI_IMAGE_CONTROLLER_MODEL
 );
 
+const steelWebsocketEndpoint = String(process.env.STEEL_WS_ENDPOINT || "wss://connect.steel.dev").trim();
+const steelApiKey = String(process.env.STEEL_API_KEY || "").trim();
+const steelProjectId = String(process.env.STEEL_PROJECT_ID || "").trim();
+
+function buildSteelConnectUrl(sessionOptions = {}) {
+  if (!steelApiKey) {
+    throw new Error("Steel is not configured. Set STEEL_API_KEY.");
+  }
+
+  const wsUrl = new URL(steelWebsocketEndpoint);
+  wsUrl.searchParams.set("apiKey", steelApiKey);
+
+  if (steelProjectId) {
+    wsUrl.searchParams.set("projectId", steelProjectId);
+  }
+
+  if (Number.isFinite(sessionOptions.timeoutMs) && sessionOptions.timeoutMs > 0) {
+    wsUrl.searchParams.set("sessionTimeout", String(Math.floor(sessionOptions.timeoutMs)));
+  }
+
+  return wsUrl.toString();
+}
+
+async function runSteelNavigation({ targetUrl, timeoutMs = 45000, waitUntil = "domcontentloaded", captureScreenshot = false }) {
+  const connectUrl = buildSteelConnectUrl({ timeoutMs });
+  const browser = await chromium.connectOverCDP(connectUrl);
+
+  try {
+    const context = browser.contexts()[0] || (await browser.newContext());
+    const page = await context.newPage();
+
+    await page.goto(targetUrl, { waitUntil, timeout: timeoutMs });
+    await page.waitForTimeout(500);
+
+    const title = await page.title();
+    const finalUrl = page.url();
+    const pageText = await page
+      .locator("body")
+      .innerText()
+      .then((text) => text.slice(0, 1000))
+      .catch(() => "");
+
+    let screenshotBase64 = null;
+    if (captureScreenshot) {
+      const screenshot = await page.screenshot({ type: "png", fullPage: true });
+      screenshotBase64 = screenshot.toString("base64");
+    }
+
+    await page.close();
+
+    return {
+      ok: true,
+      title,
+      finalUrl,
+      textPreview: pageText,
+      screenshotBase64,
+    };
+  } finally {
+    await browser.close();
+  }
+}
+
 const fallbackThemePrompts = [
   "velvet starlight lounge",
   "rose-gold moon garden casino",
@@ -112,6 +175,24 @@ app.use(express.json({ limit: "2mb" }));
 
 app.get("/health", function (request, response) {
   response.json({ ok: true, service: "lynnes-ai-slot-deluxe" });
+});
+
+app.get("/api/config/models", function (request, response) {
+  response.json({
+    ok: true,
+    ai: {
+      provider: "openai",
+      textModel,
+      imageModel: imageControllerModel,
+      hasOpenAiKey: Boolean(process.env.OPENAI_API_KEY),
+      expectedEnvVars: ["OPENAI_API_KEY", "OPENAI_TEXT_MODEL", "OPENAI_IMAGE_CONTROLLER_MODEL"],
+    },
+    steel: {
+      configured: Boolean(steelApiKey),
+      websocketEndpoint: steelWebsocketEndpoint,
+      hasProjectId: Boolean(steelProjectId),
+    },
+  });
 });
 
 app.use(express.static(__dirname));
@@ -550,6 +631,49 @@ app.post("/api/ai/theme", async (request, response) => {
   };
 
   response.json(await generateTheme(payload));
+});
+
+app.get("/api/agent/steel/health", function (request, response) {
+  response.json({
+    ok: true,
+    configured: Boolean(steelApiKey),
+    websocketEndpoint: steelWebsocketEndpoint,
+    hasProjectId: Boolean(steelProjectId),
+  });
+});
+
+app.post("/api/agent/steel/navigate", async (request, response) => {
+  const targetUrl = String(request.body?.url || "").trim();
+  if (!targetUrl) {
+    response.status(400).json({ ok: false, error: "Missing required body field: url" });
+    return;
+  }
+
+  if (!/^https?:\/\//i.test(targetUrl)) {
+    response.status(400).json({ ok: false, error: "url must start with http:// or https://" });
+    return;
+  }
+
+  const waitUntil = String(request.body?.waitUntil || "domcontentloaded");
+  const captureScreenshot = Boolean(request.body?.captureScreenshot);
+  const timeoutMs = clamp(Number(request.body?.timeoutMs) || 45000, 5000, 120000);
+
+  try {
+    const result = await runSteelNavigation({
+      targetUrl,
+      timeoutMs,
+      waitUntil,
+      captureScreenshot,
+    });
+    response.json(result);
+  } catch (error) {
+    console.error("Steel navigate failed:", error);
+    response.status(500).json({
+      ok: false,
+      error: String(error?.message || "Steel navigation failed"),
+      detail: summarizeAiError(error),
+    });
+  }
 });
 
 app.use((request, response) => {

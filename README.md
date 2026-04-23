@@ -6,6 +6,22 @@ Browser slot game with bonus rounds, optional OpenAI-powered story/theme APIs (s
 
 **Deploy to GitHub + Railway:** see **[DEPLOY.md](./DEPLOY.md)** for step-by-step instructions, environment variables, and GitHub Pages + split API setup.
 
+## Steel Browser (Railway AI Agents)
+
+This repo includes a server-side Steel browser bridge for agent workflows:
+
+- `GET /api/agent/steel/health`
+- `POST /api/agent/steel/navigate`
+
+Required environment variable:
+
+- `STEEL_API_KEY`
+
+Optional:
+
+- `STEEL_PROJECT_ID`
+- `STEEL_WS_ENDPOINT` (defaults to `wss://connect.steel.dev`)
+
 ```bash
 npm install
 cp .env.example .env   # add OPENAI_API_KEY for local AI
