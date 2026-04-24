@@ -407,6 +407,10 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function addStoryMoment(text) {
+    if (!storyLogEl) {
+      return;
+    }
+
     const storyItem = document.createElement("li");
     storyItem.textContent = text;
     storyLogEl.prepend(storyItem);
@@ -424,7 +428,9 @@ document.addEventListener("DOMContentLoaded", function () {
       collapsedText.length > 320
         ? collapsedText.slice(0, 317).trimEnd() + "..."
         : collapsedText;
-    storyOutputEl.textContent = safeText;
+    if (storyOutputEl) {
+      storyOutputEl.textContent = safeText;
+    }
     addStoryMoment(safeText);
     if (voiceGuideEl && voiceGuideEl.checked && window.speechSynthesis) {
       window.speechSynthesis.cancel();
@@ -750,7 +756,9 @@ document.addEventListener("DOMContentLoaded", function () {
       state.freeSpins > 0
         ? formatNumber(state.freeSpins) + " • x" + formatNumber(state.freeSpinMultiplier)
         : "0";
-    worldStageEl.textContent = formatNumber(state.worldStage);
+    if (worldStageEl) {
+      worldStageEl.textContent = formatNumber(state.worldStage);
+    }
     soundButton.textContent = state.soundEnabled ? "Sound: On" : "Sound: Off";
     soundButton.setAttribute("aria-pressed", state.soundEnabled ? "true" : "false");
 
@@ -806,8 +814,12 @@ document.addEventListener("DOMContentLoaded", function () {
     state.themeSource = themeData.source || "local";
     state.currentThemeImage = themeData.backgroundImageDataUrl || "";
 
-    themeNameEl.textContent = state.themeName;
-    themeCaptionEl.textContent = state.themeCaption;
+    if (themeNameEl) {
+      themeNameEl.textContent = state.themeName;
+    }
+    if (themeCaptionEl) {
+      themeCaptionEl.textContent = state.themeCaption;
+    }
     setThemeSourceLabel(state.themeSource);
 
     const localBackground = buildLocalBackground(palette);
@@ -819,10 +831,14 @@ document.addEventListener("DOMContentLoaded", function () {
         safeImageUrl +
         "\")";
       themeSurfaceEl.style.backgroundImage = layeredImage;
-      themePreviewEl.style.backgroundImage = layeredImage;
+      if (themePreviewEl) {
+        themePreviewEl.style.backgroundImage = layeredImage;
+      }
     } else {
       themeSurfaceEl.style.backgroundImage = localBackground;
-      themePreviewEl.style.backgroundImage = localBackground;
+      if (themePreviewEl) {
+        themePreviewEl.style.backgroundImage = localBackground;
+      }
     }
   }
 
