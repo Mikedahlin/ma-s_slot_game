@@ -15,11 +15,17 @@ document.addEventListener("DOMContentLoaded", function () {
   const SPARK_BONUS_EVERY_N_SPINS = 12;
 
   const symbols = [
-    { id: "cherry", name: "Cherry", icon: "🍒", weight: 32, multiplier: 2 },
-    { id: "lemon", name: "Lemon", icon: "🍋", weight: 28, multiplier: 3 },
-    { id: "bell", name: "Bell", icon: "🔔", weight: 20, multiplier: 5 },
-    { id: "diamond", name: "Diamond", icon: "💎", weight: 12, multiplier: 10 },
-    { id: "seven", name: "Seven", icon: "7", weight: 8, multiplier: 20 },
+    { id: "cherry", name: "Cherry", icon: "🍒", weight: 25, multiplier: 2 },
+    { id: "lemon", name: "Lemon", icon: "🍋", weight: 20, multiplier: 3 },
+    { id: "plum", name: "Plum", icon: "🟣", weight: 15, multiplier: 4 },
+    { id: "orange", name: "Orange", icon: "🍊", weight: 15, multiplier: 4 },
+    { id: "watermelon", name: "Watermelon", icon: "🍉", weight: 12, multiplier: 5 },
+    { id: "bell", name: "Bell", icon: "🔔", weight: 10, multiplier: 8 },
+    { id: "horseshoe", name: "Horseshoe", icon: "🐴", weight: 8, multiplier: 10 },
+    { id: "wild", name: "WILD", icon: "WILD", weight: 5, multiplier: 15, isWild: true },
+    { id: "vegas", name: "VEGAS BABY FREE SPINS", icon: "VEGAS", weight: 3, multiplier: 25, isBonus: true },
+    { id: "coin", name: "Coin", icon: "�", weight: 2, multiplier: 50, isSpecial: true },
+    { id: "seven", name: "Seven", icon: "7", weight: 5, multiplier: 30 },
   ];
 
   const localThemeStages = [
@@ -153,10 +159,21 @@ document.addEventListener("DOMContentLoaded", function () {
   const resetButton = document.getElementById("reset-button");
   const betDownButton = document.getElementById("bet-down");
   const betUpButton = document.getElementById("bet-up");
+  const paytableButton = document.getElementById("paytable-button");
+  const partyCharmsButton = document.getElementById("party-charms");
+  const treasureBoxButton = document.getElementById("treasure-box");
+  const winAmountEl = document.getElementById("win-amount");
+  const jackpotAmountEl = document.getElementById("jackpot-amount");
+  const specialCoinsEl = document.getElementById("special-coins");
+  const specialBonusEl = document.getElementById("special-bonus");
+  const bigWinDisplayEl = document.getElementById("big-win-display");
+  const bigWinNumberEl = document.getElementById("big-win-number");
   const reelEls = [
     document.getElementById("reel-0"),
     document.getElementById("reel-1"),
     document.getElementById("reel-2"),
+    document.getElementById("reel-3"),
+    document.getElementById("reel-4"),
   ];
 
   const sound = {
@@ -1145,43 +1162,56 @@ document.addEventListener("DOMContentLoaded", function () {
     const first = outcomeIds[0];
     const second = outcomeIds[1];
     const third = outcomeIds[2];
+    const fourth = outcomeIds[3];
+    const fifth = outcomeIds[4];
 
-    if (first === second && second === third) {
+    if (first === second && second === third && third === fourth && fourth === fifth) {
+      const symbol = symbolMap[first];
       return {
-        multiplier: symbolMap[first].multiplier,
-        winningReels: [0, 1, 2],
+        multiplier: symbol.multiplier * 3,
+        winningReels: [0, 1, 2, 3, 4],
+        kind: "five",
+        symbolId: first,
+        description: symbol.name + " x5",
+      };
+    }
+
+    const fourOfAKind = checkFourOfAKind(outcomeIds);
+    if (fourOfAKind) {
+      const symbol = symbolMap[fourOfAKind.symbolId];
+      return {
+        multiplier: symbol.multiplier * 2,
+        winningReels: fourOfAKind.reels,
+        kind: "four",
+        symbolId: fourOfAKind.symbolId,
+        description: symbol.name + " x4",
+      };
+    }
+
+    const threeOfAKind = checkThreeOfAKind(outcomeIds);
+    if (threeOfAKind) {
+      const symbol = symbolMap[threeOfAKind.symbolId];
+      return {
+        multiplier: symbol.multiplier,
+        winningReels: threeOfAKind.reels,
         kind: "three",
-        symbolId: first,
-        description: symbolMap[first].name + " x3",
+        symbolId: threeOfAKind.symbolId,
+        description: symbol.name + " x3",
       };
     }
 
-    if (first === second) {
-      return {
-        multiplier: TWO_MATCH_MULTIPLIER,
-        winningReels: [0, 1],
-        kind: "two",
-        symbolId: first,
-        description: "Two matching symbols",
-      };
+    const specialResult = checkSpecialSymbols(outcomeIds);
+    if (specialResult) {
+      return specialResult;
     }
 
-    if (second === third) {
+    const twoOfAKind = checkTwoOfAKind(outcomeIds);
+    if (twoOfAKind) {
       return {
         multiplier: TWO_MATCH_MULTIPLIER,
-        winningReels: [1, 2],
+        winningReels: twoOfAKind.reels,
         kind: "two",
-        symbolId: second,
-        description: "Two matching symbols",
-      };
-    }
-
-    if (first === third) {
-      return {
-        multiplier: TWO_MATCH_MULTIPLIER,
-        winningReels: [0, 2],
-        kind: "two",
-        symbolId: first,
+        symbolId: twoOfAKind.symbolId,
         description: "Two matching symbols",
       };
     }
@@ -1190,9 +1220,90 @@ document.addEventListener("DOMContentLoaded", function () {
       multiplier: 0,
       winningReels: [],
       kind: "none",
-      symbolId: null,
       description: "No win",
     };
+  }
+
+  function checkFourOfAKind(outcomeIds) {
+    const counts = {};
+    outcomeIds.forEach((id, index) => {
+      if (!counts[id]) counts[id] = [];
+      counts[id].push(index);
+    });
+
+    for (const [symbolId, reels] of Object.entries(counts)) {
+      if (reels.length === 4) {
+        return { symbolId, reels };
+      }
+    }
+    return null;
+  }
+
+  function checkThreeOfAKind(outcomeIds) {
+    const counts = {};
+    outcomeIds.forEach((id, index) => {
+      if (!counts[id]) counts[id] = [];
+      counts[id].push(index);
+    });
+
+    for (const [symbolId, reels] of Object.entries(counts)) {
+      if (reels.length === 3) {
+        return { symbolId, reels };
+      }
+    }
+    return null;
+  }
+
+  function checkTwoOfAKind(outcomeIds) {
+    const counts = {};
+    outcomeIds.forEach((id, index) => {
+      if (!counts[id]) counts[id] = [];
+      counts[id].push(index);
+    });
+
+    for (const [symbolId, reels] of Object.entries(counts)) {
+      if (reels.length === 2) {
+        return { symbolId, reels };
+      }
+    }
+    return null;
+  }
+
+  function checkSpecialSymbols(outcomeIds) {
+    const wildCount = outcomeIds.filter(id => id === 'wild').length;
+    if (wildCount >= 3) {
+      return {
+        multiplier: symbolMap['wild'].multiplier * 2,
+        winningReels: outcomeIds.map((id, index) => id === 'wild' ? index : -1).filter(i => i >= 0),
+        kind: "special",
+        symbolId: 'wild',
+        description: "WILD x" + wildCount,
+      };
+    }
+
+    const vegasCount = outcomeIds.filter(id => id === 'vegas').length;
+    if (vegasCount >= 3) {
+      return {
+        multiplier: symbolMap['vegas'].multiplier,
+        winningReels: outcomeIds.map((id, index) => id === 'vegas' ? index : -1).filter(i => i >= 0),
+        kind: "bonus",
+        symbolId: 'vegas',
+        description: "VEGAS BABY FREE SPINS!",
+      };
+    }
+
+    const coinCount = outcomeIds.filter(id => id === 'coin').length;
+    if (coinCount >= 3) {
+      return {
+        multiplier: symbolMap['coin'].multiplier,
+        winningReels: outcomeIds.map((id, index) => id === 'coin' ? index : -1).filter(i => i >= 0),
+        kind: "jackpot",
+        symbolId: 'coin',
+        description: "COIN JACKPOT!",
+      };
+    }
+
+    return null;
   }
 
   function highlightWinningSymbols(reelIndexes) {
@@ -1697,7 +1808,13 @@ document.addEventListener("DOMContentLoaded", function () {
 
     updateUi();
 
-    const outcomeIds = [chooseWeightedSymbol(), chooseWeightedSymbol(), chooseWeightedSymbol()];
+    const outcomeIds = [
+      chooseWeightedSymbol(), 
+      chooseWeightedSymbol(), 
+      chooseWeightedSymbol(), 
+      chooseWeightedSymbol(), 
+      chooseWeightedSymbol()
+    ];
     const strips = outcomeIds.map(function (symbolId, reelIndex) {
       return buildStrip(symbolId, BASE_STRIP_LENGTH + reelIndex * 8);
     });
@@ -1711,6 +1828,10 @@ document.addEventListener("DOMContentLoaded", function () {
     await reelControllers[1].stop();
     await delay(220);
     await reelControllers[2].stop();
+    await delay(220);
+    await reelControllers[3].stop();
+    await delay(220);
+    await reelControllers[4].stop();
 
     const result = evaluateResult(outcomeIds);
     const payoutMultiplier = usingFreeSpin ? result.multiplier * state.freeSpinMultiplier : result.multiplier;
@@ -1720,6 +1841,22 @@ document.addEventListener("DOMContentLoaded", function () {
     if (result.multiplier > 0) {
       state.balance += baseWinnings;
       highlightWinningSymbols(result.winningReels);
+
+      // Update win amount display
+      if (winAmountEl) {
+        winAmountEl.textContent = formatNumber(baseWinnings);
+      }
+
+      // Show big win display for large wins
+      if (baseWinnings >= 500 || result.kind === "five" || result.kind === "jackpot") {
+        if (bigWinDisplayEl && bigWinNumberEl) {
+          bigWinNumberEl.textContent = formatNumber(baseWinnings);
+          bigWinDisplayEl.classList.remove("hidden");
+          setTimeout(() => {
+            bigWinDisplayEl.classList.add("hidden");
+          }, 3000);
+        }
+      }
 
       if (payoutMultiplier >= BIG_WIN_MULTIPLIER) {
         pulseBigWin();
@@ -1899,6 +2036,22 @@ document.addEventListener("DOMContentLoaded", function () {
     });
     betUpButton.addEventListener("click", function () {
       changeBet(1);
+    });
+    
+    // New button event handlers
+    paytableButton.addEventListener("click", function () {
+      sound.click();
+      showMessage("Pay Table: Cherry 3x=2x, Lemon 3x=3x, Plum 3x=4x, Orange 3x=4x, Watermelon 3x=5x, Bell 3x=8x, Horseshoe 3x=10x, WILD substitutes any symbol, VEGAS triggers free spins, Coin 3x=50x, Seven 3x=30x");
+    });
+    
+    partyCharmsButton.addEventListener("click", function () {
+      sound.click();
+      showMessage("Party Charms: Special bonus features coming soon!");
+    });
+    
+    treasureBoxButton.addEventListener("click", function () {
+      sound.click();
+      showMessage("Treasure Box: Daily rewards and prizes coming soon!");
     });
     window.addEventListener("resize", function () {
       if (!state.spinning) {
