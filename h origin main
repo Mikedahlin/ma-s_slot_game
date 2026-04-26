@@ -1,0 +1,214 @@
+[1mdiff --git a/.env.example b/.env.example[m
+[1mindex ae14626..7ddf265 100644[m
+[1m--- a/.env.example[m
+[1m+++ b/.env.example[m
+[36m@@ -3,10 +3,18 @@[m
+ [m
+ OPENAI_API_KEY=your_openai_api_key_here[m
+ # Optional — defaults are set in server.js if unset[m
+[31m-OPENAI_TEXT_MODEL=gpt-40-mini[m
+[31m-OPENAI_IMAGE_CONTROLLER_MODEL=gpt-40[m
+[32m+[m[32mOPENAI_TEXT_MODEL=gpt-5-mini[m
+[32m+[m[32mOPENAI_IMAGE_CONTROLLER_MODEL=gpt-image-1[m
+ PORT=3000[m
+ [m
+[32m+[m[32m# Rate limits (requests per window)[m
+[32m+[m[32mAPI_RATE_LIMIT_WINDOW_MS=60000[m
+[32m+[m[32mAPI_RATE_LIMIT_MAX=60[m
+[32m+[m[32mAI_RATE_LIMIT_WINDOW_MS=60000[m
+[32m+[m[32mAI_RATE_LIMIT_MAX=20[m
+[32m+[m[32mSTEEL_RATE_LIMIT_WINDOW_MS=60000[m
+[32m+[m[32mSTEEL_RATE_LIMIT_MAX=5[m
+[32m+[m
+ # Split deploy only: GitHub Pages frontend calling Railway API[m
+ # Comma-separated origins, e.g. https://yourname.github.io,https://yourname.github.io/your-repo[m
+ ALLOWED_ORIGINS=[m
+[36m@@ -17,3 +25,5 @@[m [mSTEEL_API_KEY=your_steel_api_key_here[m
+ STEEL_PROJECT_ID=[m
+ # Optional[m
+ STEEL_WS_ENDPOINT=wss://connect.steel.dev[m
+[32m+[m[32m# Required for steel navigate endpoint: comma-separated hostnames only (no scheme)[m
+[32m+[m[32mSTEEL_ALLOWED_HOSTS=example.com,www.example.com[m
+[1mdiff --git a/.github/workflows/npm-publish-github-packages.yml b/.github/workflows/npm-publish-github-packages.yml[m
+[1mindex ea2d329..be165d6 100644[m
+[1m--- a/.github/workflows/npm-publish-github-packages.yml[m
+[1m+++ b/.github/workflows/npm-publish-github-packages.yml[m
+[36m@@ -16,7 +16,7 @@[m [mjobs:[m
+         with:[m
+           node-version: 20[m
+       - run: npm ci[m
+[31m-      - run: npm test[m
+[32m+[m[32m      - run: npm run test:e2e[m
+ [m
+   publish-gpr:[m
+     needs: build[m
+[1mdiff --git a/server.js b/server.js[m
+[1mindex d7b55ef..e5b6c4d 100644[m
+[1m--- a/server.js[m
+[1m+++ b/server.js[m
+[36m@@ -2,6 +2,7 @@[m [mimport dotenv from "dotenv";[m
+ import express from "express";[m
+ import path from "path";[m
+ import { fileURLToPath } from "url";[m
+[32m+[m[32mimport { randomUUID } from "crypto";[m
+ import OpenAI from "openai";[m
+ import { chromium } from "playwright-core";[m
+ [m
+[36m@@ -104,6 +105,14 @@[m [mconst imageControllerModel = normalizeImageModelChoice([m
+ const steelWebsocketEndpoint = String(process.env.STEEL_WS_ENDPOINT || "wss://connect.steel.dev").trim();[m
+ const steelApiKey = String(process.env.STEEL_API_KEY || "").trim();[m
+ const steelProjectId = String(process.env.STEEL_PROJECT_ID || "").trim();[m
+[32m+[m[32mconst steelAllowedHosts = new Set([m
+[32m+[m[32m  String(process.env.STEEL_ALLOWED_HOSTS || "")[m
+[32m+[m[32m    .split(",")[m
+[32m+[m[32m    .map(function (host) {[m
+[32m+[m[32m      return host.trim().toLowerCase();[m
+[32m+[m[32m    })[m
+[32m+[m[32m    .filter(Boolean)[m
+[32m+[m[32m);[m
+ [m
+ function buildSteelConnectUrl(sessionOptions = {}) {[m
+   if (!steelApiKey) {[m
+[36m@@ -173,10 +182,85 @@[m [mconst fallbackThemePrompts = [[m
+ [m
+ app.use(express.json({ limit: "2mb" }));[m
+ [m
+[32m+[m[32mfunction getClientIp(request) {[m
+[32m+[m[32m  const forwarded = String(request.headers["x-forwarded-for"] || "").split(",")[0].trim();[m
+[32m+[m[32m  return forwarded || request.socket?.remoteAddress || "unknown";[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32mfunction createRateLimiter(options) {[m
+[32m+[m[32m  const windowMs = Number(options.windowMs) || 60 * 1000;[m
+[32m+[m[32m  const maxRequests = Number(options.maxRequests) || 60;[m
+[32m+[m[32m  const keyPrefix = String(options.keyPrefix || "global");[m
+[32m+[m[32m  const buckets = new Map();[m
+[32m+[m
+[32m+[m[32m  return function rateLimitMiddleware(request, response, next) {[m
+[32m+[m[32m    const now = Date.now();[m
+[32m+[m[32m    const key = keyPrefix + ":" + getClientIp(request);[m
+[32m+[m[32m    const existing = buckets.get(key);[m
+[32m+[m[32m    if (!existing || existing.resetAt <= now) {[m
+[32m+[m[32m      buckets.set(key, { count: 1, resetAt: now + windowMs });[m
+[32m+[m[32m      next();[m
+[32m+[m[32m      return;[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    if (existing.count >= maxRequests) {[m
+[32m+[m[32m      response.status(429).json({[m
+[32m+[m[32m        ok: false,[m
+[32m+[m[32m        error: "Too many requests. Please retry later.",[m
+[32m+[m[32m      });[m
+[32m+[m[32m      return;[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    existing.count += 1;[m
+[32m+[m[32m    next();[m
+[32m+[m[32m  };[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32mfunction apiAuditLogger(request, response, next) {[m
+[32m+[m[32m  const startedAt = Date.now();[m
+[32m+[m[32m  const requestId = randomUUID();[m
+[32m+[m[32m  response.setHeader("x-request-id", requestId);[m
+[32m+[m
+[32m+[m[32m  response.on("finish", function () {[m
+[32m+[m[32m    const durationMs = Date.now() - startedAt;[m
+[32m+[m[32m    console.log([m
+[32m+[m[32m      JSON.stringify({[m
+[32m+[m[32m        event: "api_request",[m
+[32m+[m[32m        requestId,[m
+[32m+[m[32m        method: request.method,[m
+[32m+[m[32m        path: request.path,[m
+[32m+[m[32m        statusCode: response.statusCode,[m
+[32m+[m[32m        durationMs,[m
+[32m+[m[32m        ip: getClientIp(request),[m
+[32m+[m[32m      })[m
+[32m+[m[32m    );[m
+[32m+[m[32m  });[m
+[32m+[m
+[32m+[m[32m  next();[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32mconst apiGlobalLimiter = createRateLimiter({[m
+[32m+[m[32m  keyPrefix: "api",[m
+[32m+[m[32m  windowMs: Number(process.env.API_RATE_LIMIT_WINDOW_MS) || 60 * 1000,[m
+[32m+[m[32m  maxRequests: Number(process.env.API_RATE_LIMIT_MAX) || 60,[m
+[32m+[m[32m});[m
+[32m+[m[32mconst aiLimiter = createRateLimiter({[m
+[32m+[m[32m  keyPrefix: "ai",[m
+[32m+[m[32m  windowMs: Number(process.env.AI_RATE_LIMIT_WINDOW_MS) || 60 * 1000,[m
+[32m+[m[32m  maxRequests: Number(process.env.AI_RATE_LIMIT_MAX) || 20,[m
+[32m+[m[32m});[m
+[32m+[m[32mconst steelLimiter = createRateLimiter({[m
+[32m+[m[32m  keyPrefix: "steel",[m
+[32m+[m[32m  windowMs: Number(process.env.STEEL_RATE_LIMIT_WINDOW_MS) || 60 * 1000,[m
+[32m+[m[32m  maxRequests: Number(process.env.STEEL_RATE_LIMIT_MAX) || 5,[m
+[32m+[m[32m});[m
+[32m+[m
+ app.get("/health", function (request, response) {[m
+   response.json({ ok: true, service: "lynnes-ai-slot-deluxe" });[m
+ });[m
+ [m
+[32m+[m[32mapp.use("/api", apiAuditLogger, apiGlobalLimiter);[m
+[32m+[m
+ app.get("/api/config/models", function (request, response) {[m
+   response.json({[m
+     ok: true,[m
+[36m@@ -608,7 +692,7 @@[m [masync function generateTheme(payload) {[m
+   }[m
+ }[m
+ [m
+[31m-app.post("/api/ai/story", async (request, response) => {[m
+[32m+[m[32mapp.post("/api/ai/story", aiLimiter, async (request, response) => {[m
+   const payload = {[m
+     eventType: request.body?.eventType || "guide",[m
+     themeName: request.body?.themeName || "Velvet Starlight Lounge",[m
+[36m@@ -622,7 +706,7 @@[m [mapp.post("/api/ai/story", async (request, response) => {[m
+   response.json(await generateStory(payload));[m
+ });[m
+ [m
+[31m-app.post("/api/ai/theme", async (request, response) => {[m
+[32m+[m[32mapp.post("/api/ai/theme", aiLimiter, async (request, response) => {[m
+   const payload = {[m
+     themePrompt: request.body?.themePrompt || "",[m
+     worldStage: clamp(Number(request.body?.worldStage) || 1, 1, 5),[m
+[36m@@ -642,7 +726,7 @@[m [mapp.get("/api/agent/steel/health", function (request, response) {[m
+   });[m
+ });[m
+ [m
+[31m-app.post("/api/agent/steel/navigate", async (request, response) => {[m
+[32m+[m[32mapp.post("/api/agent/steel/navigate", steelLimiter, async (request, response) => {[m
+   const targetUrl = String(request.body?.url || "").trim();[m
+   if (!targetUrl) {[m
+     response.status(400).json({ ok: false, error: "Missing required body field: url" });[m
+[36m@@ -653,6 +737,29 @@[m [mapp.post("/api/agent/steel/navigate", async (request, response) => {[m
+     response.status(400).json({ ok: false, error: "url must start with http:// or https://" });[m
+     return;[m
+   }[m
+[32m+[m[32m  if (steelAllowedHosts.size === 0) {[m
+[32m+[m[32m    response.status(503).json({[m
+[32m+[m[32m      ok: false,[m
+[32m+[m[32m      error: "Steel host allowlist is empty. Configure STEEL_ALLOWED_HOSTS.",[m
+[32m+[m[32m    });[m
+[32m+[m[32m    return;[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  let targetHost = "";[m
+[32m+[m[32m  try {[m
+[32m+[m[32m    targetHost = new URL(targetUrl).hostname.toLowerCase();[m
+[32m+[m[32m  } catch {[m
+[32m+[m[32m    response.status(400).json({ ok: false, error: "url must be a valid absolute URL" });[m
+[32m+[m[32m    return;[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  if (!steelAllowedHosts.has(targetHost)) {[m
+[32m+[m[32m    response.status(403).json({[m
+[32m+[m[32m      ok: false,[m
+[32m+[m[32m      error: "Target host is not allowed by STEEL_ALLOWED_HOSTS",[m
+[32m+[m[32m    });[m
+[32m+[m[32m    return;[m
+[32m+[m[32m  }[m
+ [m
+   const waitUntil = String(request.body?.waitUntil || "domcontentloaded");[m
+   const captureScreenshot = Boolean(request.body?.captureScreenshot);[m

@@ -1,244 +1,84 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta
-    name="description"
-    content="Lynne's AI Slot Deluxe - a premium cozy slot machine with evolving AI art, bonus rounds, and warm story moments."
-  >
-  <title>Lynne's AI Slot Deluxe</title>
-  <link rel="stylesheet" href="styles.css">
-  <script src="config.deploy.js"></script>
-</head>
-<body>
-  <div class="page-mist" aria-hidden="true"></div>
-
-  <main class="app-shell">
-    <header class="hero-banner">
-      <p class="hero-kicker">Premium Cozy AI Slot Game</p>
-      <h1>Lynne's AI Slot Deluxe</h1>
-      <p class="hero-copy">
-        A warm magical slot lounge for Lynne with evolving AI story moments, dreamy bonus worlds,
-        glowing reels, and richer graphics every time the luck wakes up.
-      </p>
-
-      <div class="hero-tags" aria-label="Game features">
-        <span>AI Story Guide</span>
-        <span>Evolving Theme Art</span>
-        <span>Diamond Rush</span>
-        <span>Lucky Free Spins</span>
-      </div>
-    </header>
-
-    <section class="layout-grid">
-      <aside class="side-panel">
-        <section class="panel payout-panel" aria-labelledby="payout-heading">
-          <div class="panel-header">
-            <h2 id="payout-heading">Payout Table</h2>
-            <p>The glowing center line is the winning payline.</p>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mom's Premium 5-Reel Slots</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="casino">
+      <header class="hud">
+        <div class="hud-block">
+          <p class="hud-label">Theme</p>
+          <h1 id="themeTitle">Lynne's Neon Nights</h1>
+          <p id="themeSubtitle">A premium social slot adventure</p>
+          <p class="love-note">Mike loves his mom ❤️</p>
+        </div>
+        <div class="hud-side">
+          <div class="meter">
+            <p class="hud-label">Balance</p>
+            <p id="balanceValue" class="meter-value">$1000</p>
           </div>
-
-          <ul class="payout-list">
-            <li><span>Cherry x3</span><strong>2x bet</strong></li>
-            <li><span>Lemon x3</span><strong>3x bet</strong></li>
-            <li><span>Bell x3</span><strong>5x bet + Treasure Shelf</strong></li>
-            <li><span>Diamond x3</span><strong>10x bet + Diamond Vault</strong></li>
-            <li><span>Seven x3</span><strong>20x bet + Starfall Spins</strong></li>
-            <li><span>Any 2 matching</span><strong>1x bet</strong></li>
-          </ul>
-        </section>
-
-        <section class="panel ai-panel" aria-labelledby="ai-heading">
-          <div class="panel-header">
-            <h2 id="ai-heading">Sound & Voice Controls</h2>
-            <p>Control game audio and voice guide settings.</p>
+          <div class="meter">
+            <p class="hud-label">Bet</p>
+            <p id="betValue" class="meter-value">$25</p>
           </div>
-
-          <button id="sound-button" class="sound-button" type="button" aria-pressed="true">
-            Sound: On
-          </button>
-
-          <button id="music-button" class="sound-button music-button" type="button" aria-pressed="false">
-            Music: Off
-          </button>
-
-          <label class="field-label checkbox-label">
-            <input id="voice-guide" class="checkbox-input" type="checkbox">
-            Voice guide (browser speech)
+          <div class="meter">
+            <p class="hud-label">Last Win</p>
+            <p id="lastWinValue" class="meter-value">$0</p>
+          </div>
+          <div class="meter jackpot-meter">
+            <p class="hud-label">Mega Jackpot</p>
+            <p id="jackpotValue" class="meter-value">$0</p>
+          </div>
+          <div class="meter daily-meter">
+            <p class="hud-label">Daily Streak</p>
+            <p id="dailyStreakValue" class="meter-value">Day 1</p>
+          </div>
+          <button id="muteBtn" class="chip-btn" type="button" aria-pressed="false">Sound: On</button>
+          <label class="volume-wrap" for="volumeSlider">
+            <span>Volume</span>
+            <input id="volumeSlider" type="range" min="0" max="100" value="80" />
           </label>
+        </div>
+      </header>
 
-        </section>
-      </aside>
-
-      <section class="machine-column">
-        <section class="panel machine-panel">
-          <!-- Top Jackpot Bar -->
-          <div class="jackpot-bar">
-            <div class="jackpot-display">
-              <span class="jackpot-label">JACKPOT</span>
-              <span id="jackpot-amount" class="jackpot-amount">5,863,148</span>
-            </div>
-            <div class="special-deals">
-              <span class="deals-label">SPECIAL DEALS</span>
-              <div class="deals-amounts">
-                <span id="special-coins" class="special-coins">99,720</span>
-                <span id="special-bonus" class="special-bonus">0</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Game Status -->
-          <div class="status-grid">
-            <div class="status-card">
-              <span class="status-label">Virtual Coins</span>
-              <strong id="balance" class="status-value">1000</strong>
-            </div>
-
-            <div class="status-card">
-              <span class="status-label">Bet (VC)</span>
-              <div class="bet-controls">
-                <button id="bet-down" class="bet-arrow" type="button" aria-label="Lower bet">&#9660;</button>
-                <strong id="bet" class="status-value">10</strong>
-                <button id="bet-up" class="bet-arrow" type="button" aria-label="Raise bet">&#9650;</button>
-              </div>
-            </div>
-
-            <div class="status-card">
-              <span class="status-label">Last Win (VC)</span>
-              <strong id="win-amount" class="status-value win-display">0</strong>
-            </div>
-
-            <div class="status-card">
-              <span class="status-label">Free Spins</span>
-              <strong id="free-spins" class="status-value">0</strong>
-            </div>
-          </div>
-
-          <section id="machine" class="machine">
-            <div class="marquee" aria-hidden="true">
-              <span></span>
-              <span></span>
-              <span></span>
-              <span></span>
-              <span></span>
-              <span></span>
-              <span></span>
-              <span></span>
-              <span></span>
-              <span></span>
-              <span></span>
-              <span></span>
-            </div>
-
-            <div class="machine-badge">LYNNE</div>
-            <div id="mom-love-sign" class="mom-love-sign" aria-hidden="true">
-              Mike loves his Mom
-            </div>
-
-            <div id="theme-surface" class="theme-surface" aria-hidden="true"></div>
-            <div id="effects-layer" class="effects-layer" aria-hidden="true"></div>
-
-            <div class="reels-frame" aria-live="polite" aria-label="Five slot machine reels">
-              <div class="payline"></div>
-              <div class="win-display-overlay hidden" id="big-win-display">
-                <span class="win-number" id="big-win-number">720</span>
-                <div class="win-coin">💰</div>
-              </div>
-
-              <div class="reel-window reel-window--0">
-                <div id="reel-0" class="reel-strip"></div>
-              </div>
-
-              <div class="reel-window reel-window--1">
-                <div id="reel-1" class="reel-strip"></div>
-              </div>
-
-              <div class="reel-window reel-window--2">
-                <div id="reel-2" class="reel-strip"></div>
-              </div>
-
-              <div class="reel-window reel-window--3">
-                <div id="reel-3" class="reel-strip"></div>
-              </div>
-
-              <div class="reel-window reel-window--4">
-                <div id="reel-4" class="reel-strip"></div>
-              </div>
-            </div>
-
-            <div class="controls">
-              <button id="paytable-button" class="control-button paytable-btn" type="button">PAY TABLE</button>
-              <button id="spin-button" class="spin-button" type="button">SPIN<br>HOLD FOR AUTO</button>
-              <button id="reset-button" class="control-button reset-btn" type="button">RESET</button>
-            </div>
-
-            <!-- Bottom Action Buttons -->
-            <div class="bottom-controls">
-              <button id="party-charms" class="bottom-btn party-charms-btn" type="button">PARTY CHARMS</button>
-              <button id="treasure-box" class="bottom-btn treasure-box-btn" type="button">Treasure BOX</button>
-            </div>
-
-            <div id="message" class="message-box" role="status">
-              Welcome to Lynne's AI Slot Deluxe. Let the room glow, then press Spin.
-            </div>
-
-            <div id="bonus-overlay" class="bonus-overlay hidden" aria-hidden="true">
-              <!-- CSS-only ambient layer (avoids cross-origin / codec issues with external video) -->
-              <div class="bonus-bg-fx" aria-hidden="true"></div>
-              <div class="bonus-modal">
-                <p id="bonus-kicker" class="bonus-kicker">Bonus Round</p>
-                <h3 id="bonus-title" class="bonus-title">Velvet Bonus Room</h3>
-                <p id="bonus-description" class="bonus-description">
-                  The bonus room is opening. Pick carefully.
-                </p>
-                <div id="bonus-choices" class="bonus-choices"></div>
-                <div id="bonus-summary" class="bonus-summary"></div>
-                <button id="bonus-close" class="soft-button bonus-close hidden" type="button">Continue</button>
-              </div>
-            </div>
-          </section>
-        </section>
+      <section class="cabinet">
+        <div class="cabinet-lights"></div>
+        <div class="slot-header">
+          <p id="slotMessage" class="slot-message">Press SPIN to play</p>
+        </div>
+        <div class="reel-strip-shell">
+          <div id="reelStrip" class="reel-strip" aria-live="polite"></div>
+        </div>
+        <div class="controls-row">
+          <button id="betDownBtn" class="chip-btn" type="button">Bet -</button>
+          <button id="spinBtn" class="spin-btn" type="button">SPIN</button>
+          <button id="betUpBtn" class="chip-btn" type="button">Bet +</button>
+        </div>
       </section>
 
-      <aside class="story-column">
-        <!-- Friends Panel -->
-        <section class="panel friends-panel" aria-labelledby="friends-heading">
-          <div class="panel-header">
-            <h2 id="friends-heading">Friends</h2>
-          </div>
-          <div class="friends-content">
-            <p class="friends-text">Make some friends! Click on other players and select the +Friend option.</p>
-            <div class="friends-list" id="friends-list">
-              <!-- Friends will be added here dynamically -->
-            </div>
-          </div>
-        </section>
+      <section class="info-panel">
+        <article class="info-card">
+          <h3>Payout Table (scaled by bet)</h3>
+          <p>Match 3+ of a symbol anywhere on the 5 reels.</p>
+          <p><strong>Bonus trigger rule:</strong> 3+ <span class="bonus-badge">BONUS</span> symbols anywhere triggers a bonus game. Connected chains get red link-line effects.</p>
+          <ul id="payoutTable" class="payout-list"></ul>
+        </article>
+      </section>
 
-        <!-- AI Panel (simplified) -->
-        <section class="panel ai-panel-small" aria-labelledby="ai-heading">
-          <div class="panel-header">
-            <h2 id="ai-heading">AI Dream Booth</h2>
-          </div>
+      <section id="bonusOverlay" class="bonus-overlay hidden" aria-hidden="true">
+        <div class="bonus-card">
+          <h2 id="bonusTitle">Bonus</h2>
+          <p id="bonusIntro"></p>
+          <div id="bonusBody"></div>
+          <button id="bonusContinueBtn" class="chip-btn hidden" type="button">Continue</button>
+        </div>
+      </section>
+    </main>
 
-          <label class="field-label" for="theme-prompt">Dream Theme</label>
-          <input
-            id="theme-prompt"
-            class="text-input"
-            type="text"
-            value="velvet starlight garden with moonlit jackpots"
-            placeholder="golden hour ribbon lounge with cozy fireworks"
-          >
-
-          <div class="ai-buttons">
-            <button id="theme-button" class="soft-button" type="button">Generate AI Theme</button>
-            <button id="guide-button" class="soft-button" type="button">Ask Lucky Guide</button>
-          </div>
-        </section>
-      </aside>
-    </section>
-  </main>
-
-  <script src="script.js"></script>
-</body>
+    <div id="fxLayer" class="fx-layer" aria-hidden="true"></div>
+    <script src="./script.js"></script>
+  </body>
 </html>
