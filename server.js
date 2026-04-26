@@ -2,6 +2,7 @@ import dotenv from "dotenv";
 import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
+import { randomUUID } from "crypto";
 import OpenAI from "openai";
 import { chromium } from "playwright-core";
 
@@ -104,6 +105,14 @@ const imageControllerModel = normalizeImageModelChoice(
 const steelWebsocketEndpoint = String(process.env.STEEL_WS_ENDPOINT || "wss://connect.steel.dev").trim();
 const steelApiKey = String(process.env.STEEL_API_KEY || "").trim();
 const steelProjectId = String(process.env.STEEL_PROJECT_ID || "").trim();
+const steelAllowedHosts = new Set(
+  String(process.env.STEEL_ALLOWED_HOSTS || "")
+    .split(",")
+    .map(function (host) {
+      return host.trim().toLowerCase();
+    })
+    .filter(Boolean)
+);
 
 function buildSteelConnectUrl(sessionOptions = {}) {
   if (!steelApiKey) {
@@ -173,9 +182,84 @@ const fallbackThemePrompts = [
 
 app.use(express.json({ limit: "2mb" }));
 
+function getClientIp(request) {
+  const forwarded = String(request.headers["x-forwarded-for"] || "").split(",")[0].trim();
+  return forwarded || request.socket?.remoteAddress || "unknown";
+}
+
+function createRateLimiter(options) {
+  const windowMs = Number(options.windowMs) || 60 * 1000;
+  const maxRequests = Number(options.maxRequests) || 60;
+  const keyPrefix = String(options.keyPrefix || "global");
+  const buckets = new Map();
+
+  return function rateLimitMiddleware(request, response, next) {
+    const now = Date.now();
+    const key = keyPrefix + ":" + getClientIp(request);
+    const existing = buckets.get(key);
+    if (!existing || existing.resetAt <= now) {
+      buckets.set(key, { count: 1, resetAt: now + windowMs });
+      next();
+      return;
+    }
+
+    if (existing.count >= maxRequests) {
+      response.status(429).json({
+        ok: false,
+        error: "Too many requests. Please retry later.",
+      });
+      return;
+    }
+
+    existing.count += 1;
+    next();
+  };
+}
+
+function apiAuditLogger(request, response, next) {
+  const startedAt = Date.now();
+  const requestId = randomUUID();
+  response.setHeader("x-request-id", requestId);
+
+  response.on("finish", function () {
+    const durationMs = Date.now() - startedAt;
+    console.log(
+      JSON.stringify({
+        event: "api_request",
+        requestId,
+        method: request.method,
+        path: request.path,
+        statusCode: response.statusCode,
+        durationMs,
+        ip: getClientIp(request),
+      })
+    );
+  });
+
+  next();
+}
+
+const apiGlobalLimiter = createRateLimiter({
+  keyPrefix: "api",
+  windowMs: Number(process.env.API_RATE_LIMIT_WINDOW_MS) || 60 * 1000,
+  maxRequests: Number(process.env.API_RATE_LIMIT_MAX) || 60,
+});
+const aiLimiter = createRateLimiter({
+  keyPrefix: "ai",
+  windowMs: Number(process.env.AI_RATE_LIMIT_WINDOW_MS) || 60 * 1000,
+  maxRequests: Number(process.env.AI_RATE_LIMIT_MAX) || 20,
+});
+const steelLimiter = createRateLimiter({
+  keyPrefix: "steel",
+  windowMs: Number(process.env.STEEL_RATE_LIMIT_WINDOW_MS) || 60 * 1000,
+  maxRequests: Number(process.env.STEEL_RATE_LIMIT_MAX) || 5,
+});
+
 app.get("/health", function (request, response) {
   response.json({ ok: true, service: "lynnes-ai-slot-deluxe" });
 });
+
+app.use("/api", apiAuditLogger, apiGlobalLimiter);
 
 app.get("/api/config/models", function (request, response) {
   response.json({
@@ -608,7 +692,7 @@ async function generateTheme(payload) {
   }
 }
 
-app.post("/api/ai/story", async (request, response) => {
+app.post("/api/ai/story", aiLimiter, async (request, response) => {
   const payload = {
     eventType: request.body?.eventType || "guide",
     themeName: request.body?.themeName || "Velvet Starlight Lounge",
@@ -622,7 +706,7 @@ app.post("/api/ai/story", async (request, response) => {
   response.json(await generateStory(payload));
 });
 
-app.post("/api/ai/theme", async (request, response) => {
+app.post("/api/ai/theme", aiLimiter, async (request, response) => {
   const payload = {
     themePrompt: request.body?.themePrompt || "",
     worldStage: clamp(Number(request.body?.worldStage) || 1, 1, 5),
@@ -642,7 +726,7 @@ app.get("/api/agent/steel/health", function (request, response) {
   });
 });
 
-app.post("/api/agent/steel/navigate", async (request, response) => {
+app.post("/api/agent/steel/navigate", steelLimiter, async (request, response) => {
   const targetUrl = String(request.body?.url || "").trim();
   if (!targetUrl) {
     response.status(400).json({ ok: false, error: "Missing required body field: url" });
@@ -651,6 +735,29 @@ app.post("/api/agent/steel/navigate", async (request, response) => {
 
   if (!/^https?:\/\//i.test(targetUrl)) {
     response.status(400).json({ ok: false, error: "url must start with http:// or https://" });
+    return;
+  }
+  if (steelAllowedHosts.size === 0) {
+    response.status(503).json({
+      ok: false,
+      error: "Steel host allowlist is empty. Configure STEEL_ALLOWED_HOSTS.",
+    });
+    return;
+  }
+
+  let targetHost = "";
+  try {
+    targetHost = new URL(targetUrl).hostname.toLowerCase();
+  } catch {
+    response.status(400).json({ ok: false, error: "url must be a valid absolute URL" });
+    return;
+  }
+
+  if (!steelAllowedHosts.has(targetHost)) {
+    response.status(403).json({
+      ok: false,
+      error: "Target host is not allowed by STEEL_ALLOWED_HOSTS",
+    });
     return;
   }
 
