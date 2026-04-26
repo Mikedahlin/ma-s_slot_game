@@ -329,10 +329,13 @@ function renderReels({ spinningIndexes = [] } = {}) {
         cell.classList.add("bonus-link-right");
       }
     }
+    const symbolAsset = getSymbolAsset(symbol.id);
     cell.innerHTML = `
       <div class="symbol-bg"></div>
       <div class="symbol-art">
-        <div class="symbol-icon">${getPremiumSymbolSvg(symbol.id)}</div>
+        <div class="symbol-icon">
+          <img class="symbol-img" src="${symbolAsset}" alt="${symbol.label}" loading="eager" />
+        </div>
       </div>
       <div class="symbol-name">${symbol.label}</div>
     `;
@@ -340,27 +343,17 @@ function renderReels({ spinningIndexes = [] } = {}) {
   });
 }
 
-function getPremiumSymbolSvg(symbolId) {
-  const common = `viewBox="0 0 100 100" class="symbol-svg" aria-hidden="true"`;
-  if (symbolId === "seven") {
-    return `<svg ${common}><defs><linearGradient id="g7" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#fff2b0"/><stop offset="100%" stop-color="#ff8e1a"/></linearGradient></defs><text x="50" y="73" text-anchor="middle" font-size="72" font-weight="900" fill="url(#g7)" stroke="#5b2200" stroke-width="4">7</text></svg>`;
-  }
-  if (symbolId === "gem") {
-    return `<svg ${common}><polygon points="50,8 90,38 72,88 28,88 10,38" fill="#6ae7ff" stroke="#0f6c95" stroke-width="5"/><polyline points="10,38 50,38 90,38" fill="none" stroke="#d9fbff" stroke-width="4"/><polyline points="28,88 50,38 72,88" fill="none" stroke="#d9fbff" stroke-width="4"/></svg>`;
-  }
-  if (symbolId === "coin") {
-    return `<svg ${common}><circle cx="50" cy="50" r="36" fill="#ffd24a" stroke="#8f5a00" stroke-width="6"/><circle cx="50" cy="50" r="24" fill="#ffeb96" stroke="#c88900" stroke-width="3"/><text x="50" y="60" text-anchor="middle" font-size="34" font-weight="900" fill="#9a5f00">$</text></svg>`;
-  }
-  if (symbolId === "cherry") {
-    return `<svg ${common}><path d="M50 26 C56 14,72 10,82 18" fill="none" stroke="#2f8c38" stroke-width="5"/><path d="M50 26 C44 14,28 10,18 18" fill="none" stroke="#2f8c38" stroke-width="5"/><circle cx="35" cy="62" r="18" fill="#ff3a4a" stroke="#7a0917" stroke-width="4"/><circle cx="65" cy="62" r="18" fill="#ff3a4a" stroke="#7a0917" stroke-width="4"/></svg>`;
-  }
-  if (symbolId === "clover") {
-    return `<svg ${common}><circle cx="40" cy="34" r="16" fill="#52da64"/><circle cx="60" cy="34" r="16" fill="#52da64"/><circle cx="40" cy="56" r="16" fill="#52da64"/><circle cx="60" cy="56" r="16" fill="#52da64"/><rect x="47" y="64" width="6" height="20" rx="3" fill="#2c8e39"/></svg>`;
-  }
-  if (symbolId === "star") {
-    return `<svg ${common}><polygon points="50,10 61,38 92,38 66,56 76,88 50,69 24,88 34,56 8,38 39,38" fill="#ffe27a" stroke="#8f6400" stroke-width="5"/></svg>`;
-  }
-  return `<svg ${common}><rect x="16" y="22" width="68" height="58" rx="10" fill="#ff5a5a" stroke="#7f1212" stroke-width="5"/><rect x="46" y="12" width="8" height="68" fill="#ffd56a"/><rect x="16" y="46" width="68" height="8" fill="#ffd56a"/><circle cx="50" cy="18" r="7" fill="#ffd56a"/></svg>`;
+function getSymbolAsset(symbolId) {
+  const assets = {
+    seven: "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/0037-fe0f-20e3.svg",
+    gem: "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/1f48e.svg",
+    coin: "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/1fa99.svg",
+    cherry: "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/1f352.svg",
+    clover: "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/1f340.svg",
+    star: "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/2b50.svg",
+    bonus: "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/1f381.svg",
+  };
+  return assets[symbolId] || assets.star;
 }
 
 function randomSymbol() {
