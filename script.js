@@ -333,8 +333,9 @@ function renderReels({ spinningIndexes = [] } = {}) {
     cell.innerHTML = `
       <div class="symbol-bg"></div>
       <div class="symbol-art">
-        <div class="symbol-icon">
-          <img class="symbol-img" src="${symbolAsset}" alt="${symbol.label}" loading="eager" />
+        <div class="symbol-icon" data-fallback="${symbol.icon}">
+          <img class="symbol-img" src="${symbolAsset}" alt="${symbol.label}" loading="eager"
+            onerror="this.style.display='none'; this.parentElement.classList.add('img-fallback');" />
         </div>
       </div>
       <div class="symbol-name">${symbol.label}</div>
@@ -645,8 +646,9 @@ function startWheelBonus() {
     await audioManager.play("button");
     const index = Math.floor(Math.random() * segments.length);
     const segmentAngle = 360 / segments.length;
-    const targetCenterAngle = index * segmentAngle + segmentAngle / 2;
-    const pointerAngle = 270;
+    // Labels are positioned from top-center, so segment center must use the same frame.
+    const targetCenterAngle = ((-90 + index * segmentAngle + segmentAngle / 2) + 360) % 360;
+    const pointerAngle = 270; // top-center in CSS transform angle space
     const turns = 5 + Math.floor(Math.random() * 3);
     const totalRotation = turns * 360 + (pointerAngle - targetCenterAngle + 360) % 360;
 
@@ -675,7 +677,7 @@ function startWheelBonus() {
     };
     requestAnimationFrame(tick);
     await delay(durationMs + 120);
-    const reward = segments[(segments.length - (index % segments.length)) % segments.length];
+    const reward = segments[index];
     dom.bonusIntro.textContent = `Wheel reward: ${formatCash(reward)}!`;
     finishBonus(reward);
   };
