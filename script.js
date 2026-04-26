@@ -15,11 +15,17 @@ document.addEventListener("DOMContentLoaded", function () {
   const SPARK_BONUS_EVERY_N_SPINS = 12;
 
   const symbols = [
-    { id: "cherry", name: "Cherry", icon: "🍒", weight: 32, multiplier: 2 },
-    { id: "lemon", name: "Lemon", icon: "🍋", weight: 28, multiplier: 3 },
-    { id: "bell", name: "Bell", icon: "🔔", weight: 20, multiplier: 5 },
-    { id: "diamond", name: "Diamond", icon: "💎", weight: 12, multiplier: 10 },
-    { id: "seven", name: "Seven", icon: "7", weight: 8, multiplier: 20 },
+    { id: "cherry", name: "Cherry", icon: "🍒", weight: 25, multiplier: 2 },
+    { id: "lemon", name: "Lemon", icon: "🍋", weight: 20, multiplier: 3 },
+    { id: "plum", name: "Plum", icon: "🟣", weight: 15, multiplier: 4 },
+    { id: "orange", name: "Orange", icon: "🍊", weight: 15, multiplier: 4 },
+    { id: "watermelon", name: "Watermelon", icon: "🍉", weight: 12, multiplier: 5 },
+    { id: "bell", name: "Bell", icon: "🔔", weight: 10, multiplier: 8 },
+    { id: "horseshoe", name: "Horseshoe", icon: "🐴", weight: 8, multiplier: 10 },
+    { id: "wild", name: "WILD", icon: "WILD", weight: 5, multiplier: 15, isWild: true },
+    { id: "vegas", name: "VEGAS BABY FREE SPINS", icon: "VEGAS", weight: 3, multiplier: 25, isBonus: true },
+    { id: "coin", name: "Coin", icon: "�", weight: 2, multiplier: 50, isSpecial: true },
+    { id: "seven", name: "Seven", icon: "7", weight: 5, multiplier: 30 },
   ];
 
   const localThemeStages = [
@@ -119,6 +125,9 @@ document.addEventListener("DOMContentLoaded", function () {
       brightness: 0.95,
     },
   };
+  let audioUnlocked = false;
+  const SPIN_BUTTON_READY_HTML = "SPIN<br><span class=\"spin-sub\">VIRTUAL COINS</span>";
+  const SPIN_BUTTON_SPINNING_HTML = "SPINNING...";
 
   const balanceEl = document.getElementById("balance");
   const betEl = document.getElementById("bet");
@@ -153,10 +162,21 @@ document.addEventListener("DOMContentLoaded", function () {
   const resetButton = document.getElementById("reset-button");
   const betDownButton = document.getElementById("bet-down");
   const betUpButton = document.getElementById("bet-up");
+  const paytableButton = document.getElementById("paytable-button");
+  const partyCharmsButton = document.getElementById("party-charms");
+  const treasureBoxButton = document.getElementById("treasure-box");
+  const winAmountEl = document.getElementById("win-amount");
+  const jackpotAmountEl = document.getElementById("jackpot-amount");
+  const specialCoinsEl = document.getElementById("special-coins");
+  const specialBonusEl = document.getElementById("special-bonus");
+  const bigWinDisplayEl = document.getElementById("big-win-display");
+  const bigWinNumberEl = document.getElementById("big-win-number");
   const reelEls = [
     document.getElementById("reel-0"),
     document.getElementById("reel-1"),
     document.getElementById("reel-2"),
+    document.getElementById("reel-3"),
+    document.getElementById("reel-4"),
   ];
 
   const sound = {
@@ -258,12 +278,22 @@ document.addEventListener("DOMContentLoaded", function () {
       };
 
       const master = ctx.createGain();
-      master.gain.value = 0.032;
+      master.gain.value = 0.022;
+      const lowpass = ctx.createBiquadFilter();
+      lowpass.type = "lowpass";
+      lowpass.frequency.value = 900;
+      lowpass.Q.value = 0.7;
+      const compressor = ctx.createDynamicsCompressor();
+      compressor.threshold.value = -26;
+      compressor.knee.value = 24;
+      compressor.ratio.value = 3;
+      compressor.attack.value = 0.01;
+      compressor.release.value = 0.18;
       const pulser = ctx.createOscillator();
       pulser.type = "sine";
       pulser.frequency.value = profile.pulseHz || 0.12;
       const pulseGain = ctx.createGain();
-      pulseGain.gain.value = 0.006 * (profile.brightness || 1);
+      pulseGain.gain.value = 0.0035 * (profile.brightness || 1);
       pulser.connect(pulseGain);
       pulseGain.connect(master.gain);
       pulser.start();
@@ -274,17 +304,20 @@ document.addEventListener("DOMContentLoaded", function () {
 
       freqs.forEach(function (freq, i) {
         const osc = ctx.createOscillator();
-        osc.type = profile.wave || "sine";
+        // Sawtooth pads can sound like static on mobile speakers; keep tone smooth.
+        osc.type = profile.wave === "sawtooth" ? "triangle" : (profile.wave || "sine");
         osc.frequency.value = freq;
         const g = ctx.createGain();
-        g.gain.value = 0.22 + i * 0.06;
+        g.gain.value = 0.003 + i * 0.0018;
         osc.connect(g);
         g.connect(master);
         osc.start();
         ambientMusic.nodes.push(osc, g);
       });
-      master.connect(ctx.destination);
-      ambientMusic.nodes.push(master, pulser, pulseGain);
+      master.connect(lowpass);
+      lowpass.connect(compressor);
+      compressor.connect(ctx.destination);
+      ambientMusic.nodes.push(master, pulser, pulseGain, lowpass, compressor);
       state.musicPlaying = true;
     },
     stop: function () {
@@ -302,6 +335,29 @@ document.addEventListener("DOMContentLoaded", function () {
       state.musicPlaying = false;
     },
   };
+
+  function safeStartAmbientMusic() {
+    if (!state.musicEnabled || state.musicPlaying || !audioUnlocked) {
+      return;
+    }
+    try {
+      ambientMusic.start();
+    } catch (error) {
+      console.warn("Ambient music start blocked:", error);
+    }
+  }
+
+  function restartAmbientMusic() {
+    if (!state.musicEnabled || !audioUnlocked) {
+      return;
+    }
+    try {
+      ambientMusic.stop();
+      ambientMusic.start();
+    } catch (error) {
+      console.warn("Ambient music restart blocked:", error);
+    }
+  }
 
   function formatNumber(value) {
     return value.toLocaleString("en-US");
@@ -376,7 +432,26 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   }
 
+  function pulseStatusCard(valueEl, tone) {
+    if (!valueEl || typeof valueEl.closest !== "function") {
+      return;
+    }
+
+    const statusCard = valueEl.closest(".status-card");
+    if (!statusCard) {
+      return;
+    }
+
+    statusCard.classList.remove("status-card--win", "status-card--loss");
+    void statusCard.offsetWidth;
+    statusCard.classList.add(tone === "loss" ? "status-card--loss" : "status-card--win");
+  }
+
   function addStoryMoment(text) {
+    if (!storyLogEl) {
+      return;
+    }
+
     const storyItem = document.createElement("li");
     storyItem.textContent = text;
     storyLogEl.prepend(storyItem);
@@ -394,7 +469,9 @@ document.addEventListener("DOMContentLoaded", function () {
       collapsedText.length > 320
         ? collapsedText.slice(0, 317).trimEnd() + "..."
         : collapsedText;
-    storyOutputEl.textContent = safeText;
+    if (storyOutputEl) {
+      storyOutputEl.textContent = safeText;
+    }
     addStoryMoment(safeText);
     if (voiceGuideEl && voiceGuideEl.checked && window.speechSynthesis) {
       window.speechSynthesis.cancel();
@@ -652,6 +729,7 @@ document.addEventListener("DOMContentLoaded", function () {
   function triggerWinExplosion(level) {
     if (level === "big") {
       machineEl.classList.add("is-jackpot");
+      machineEl.classList.add("is-win-celebrating");
       createExplosionBurst(["#ffe88a", "#ff4eb5", "#54e7ff", "#ffffff", "#ff8f66"], {
         count: 72,
         minDistance: 130,
@@ -673,10 +751,12 @@ document.addEventListener("DOMContentLoaded", function () {
       showMomLoveSign();
       window.setTimeout(function () {
         machineEl.classList.remove("is-jackpot");
+        machineEl.classList.remove("is-win-celebrating");
       }, 1700);
       return;
     }
 
+    machineEl.classList.add("is-win-celebrating");
     createExplosionBurst(["#5ff0af", "#54e7ff", "#ffcf63", "#ffffff"], {
       count: 42,
       minDistance: 95,
@@ -686,6 +766,9 @@ document.addEventListener("DOMContentLoaded", function () {
     });
     addWinFlash("small");
     playWinStinger("small");
+    window.setTimeout(function () {
+      machineEl.classList.remove("is-win-celebrating");
+    }, 900);
   }
 
   function pulseBigWin() {
@@ -720,7 +803,9 @@ document.addEventListener("DOMContentLoaded", function () {
       state.freeSpins > 0
         ? formatNumber(state.freeSpins) + " • x" + formatNumber(state.freeSpinMultiplier)
         : "0";
-    worldStageEl.textContent = formatNumber(state.worldStage);
+    if (worldStageEl) {
+      worldStageEl.textContent = formatNumber(state.worldStage);
+    }
     soundButton.textContent = state.soundEnabled ? "Sound: On" : "Sound: Off";
     soundButton.setAttribute("aria-pressed", state.soundEnabled ? "true" : "false");
 
@@ -732,11 +817,15 @@ document.addEventListener("DOMContentLoaded", function () {
     const hasCreditsForSpin = state.freeSpins > 0 || state.balance >= state.bet;
 
     spinButton.disabled = state.spinning || state.bet <= 0 || !hasCreditsForSpin;
+    spinButton.classList.toggle("is-spinning", state.spinning);
+    spinButton.classList.toggle("is-ready", !state.spinning && state.bet > 0 && hasCreditsForSpin);
+    spinButton.innerHTML = state.spinning ? SPIN_BUTTON_SPINNING_HTML : SPIN_BUTTON_READY_HTML;
     resetButton.disabled = state.spinning;
     themeButton.disabled = state.spinning;
     guideButton.disabled = state.spinning;
     betDownButton.disabled = state.spinning || state.bet <= BET_STEP;
     betUpButton.disabled = state.spinning || state.bet >= Math.min(MAX_BET, state.balance);
+    machineEl.classList.toggle("is-spinning", state.spinning);
   }
 
   function buildLocalBackground(palette) {
@@ -751,6 +840,50 @@ document.addEventListener("DOMContentLoaded", function () {
       palette.surface +
       ", #090b14 100%)"
     );
+  }
+
+  function buildLocalThemeImageDataUrl(themeName, palette) {
+    const svg = [
+      "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1600 900'>",
+      "<defs>",
+      "<linearGradient id='bg' x1='0' y1='0' x2='1' y2='1'>",
+      "<stop offset='0%' stop-color='" + palette.surface + "' />",
+      "<stop offset='100%' stop-color='#090b14' />",
+      "</linearGradient>",
+      "<radialGradient id='g1' cx='20%' cy='20%' r='45%'>",
+      "<stop offset='0%' stop-color='" + palette.accent + "' stop-opacity='0.45' />",
+      "<stop offset='100%' stop-color='" + palette.accent + "' stop-opacity='0' />",
+      "</radialGradient>",
+      "<radialGradient id='g2' cx='78%' cy='72%' r='42%'>",
+      "<stop offset='0%' stop-color='" + palette.glow + "' stop-opacity='0.4' />",
+      "<stop offset='100%' stop-color='" + palette.glow + "' stop-opacity='0' />",
+      "</radialGradient>",
+      "</defs>",
+      "<rect width='1600' height='900' fill='url(#bg)'/>",
+      "<rect width='1600' height='900' fill='url(#g1)'/>",
+      "<rect width='1600' height='900' fill='url(#g2)'/>",
+      "<g opacity='0.18' fill='" + palette.accentSoft + "'>",
+      "<circle cx='220' cy='170' r='6'/>",
+      "<circle cx='390' cy='260' r='4'/>",
+      "<circle cx='1250' cy='180' r='5'/>",
+      "<circle cx='1180' cy='330' r='3'/>",
+      "<circle cx='980' cy='640' r='5'/>",
+      "<circle cx='420' cy='700' r='4'/>",
+      "</g>",
+      "<text x='50%' y='84%' text-anchor='middle' fill='" + palette.accentSoft + "' opacity='0.24' font-size='64' font-family='Trebuchet MS, Segoe UI, sans-serif'>" +
+        String(themeName || "Lynne's Slot Theme").replace(/&/g, "&amp;").replace(/</g, "&lt;") +
+      "</text>",
+      "</svg>",
+    ].join("");
+    return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+  }
+
+  function toCssImageUrl(rawValue) {
+    const value = String(rawValue || "").trim();
+    if (!value) {
+      return "";
+    }
+    return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\)/g, "\\)");
   }
 
   function applyThemeData(themeData) {
@@ -768,21 +901,31 @@ document.addEventListener("DOMContentLoaded", function () {
     state.themeSource = themeData.source || "local";
     state.currentThemeImage = themeData.backgroundImageDataUrl || "";
 
-    themeNameEl.textContent = state.themeName;
-    themeCaptionEl.textContent = state.themeCaption;
+    if (themeNameEl) {
+      themeNameEl.textContent = state.themeName;
+    }
+    if (themeCaptionEl) {
+      themeCaptionEl.textContent = state.themeCaption;
+    }
     setThemeSourceLabel(state.themeSource);
 
+    const localBackground = buildLocalBackground(palette);
     if (state.currentThemeImage) {
+      const safeImageUrl = toCssImageUrl(state.currentThemeImage);
       const layeredImage =
-        "linear-gradient(180deg, rgba(6, 6, 12, 0.18), rgba(5, 7, 12, 0.7)), url('" +
-        state.currentThemeImage +
-        "')";
+        localBackground +
+        ", linear-gradient(180deg, rgba(6, 6, 12, 0.18), rgba(5, 7, 12, 0.7)), url(\"" +
+        safeImageUrl +
+        "\")";
       themeSurfaceEl.style.backgroundImage = layeredImage;
-      themePreviewEl.style.backgroundImage = layeredImage;
+      if (themePreviewEl) {
+        themePreviewEl.style.backgroundImage = layeredImage;
+      }
     } else {
-      const localBackground = buildLocalBackground(palette);
       themeSurfaceEl.style.backgroundImage = localBackground;
-      themePreviewEl.style.backgroundImage = localBackground;
+      if (themePreviewEl) {
+        themePreviewEl.style.backgroundImage = localBackground;
+      }
     }
   }
 
@@ -793,7 +936,7 @@ document.addEventListener("DOMContentLoaded", function () {
       themeName: localTheme.themeName,
       caption: localTheme.caption,
       palette: localTheme.palette,
-      backgroundImageDataUrl: "",
+      backgroundImageDataUrl: buildLocalThemeImageDataUrl(localTheme.themeName, localTheme.palette),
     };
   }
 
@@ -859,7 +1002,7 @@ document.addEventListener("DOMContentLoaded", function () {
       themeName: themeName,
       caption: caption,
       palette: palette,
-      backgroundImageDataUrl: "",
+      backgroundImageDataUrl: buildLocalThemeImageDataUrl(themeName, palette),
       storyWhisper:
         "The room reshapes around your dream: " +
         themeName +
@@ -932,8 +1075,7 @@ document.addEventListener("DOMContentLoaded", function () {
     };
 
     if (state.musicEnabled) {
-      ambientMusic.stop();
-      ambientMusic.start();
+      restartAmbientMusic();
     }
   }
 
@@ -1122,43 +1264,56 @@ document.addEventListener("DOMContentLoaded", function () {
     const first = outcomeIds[0];
     const second = outcomeIds[1];
     const third = outcomeIds[2];
+    const fourth = outcomeIds[3];
+    const fifth = outcomeIds[4];
 
-    if (first === second && second === third) {
+    if (first === second && second === third && third === fourth && fourth === fifth) {
+      const symbol = symbolMap[first];
       return {
-        multiplier: symbolMap[first].multiplier,
-        winningReels: [0, 1, 2],
+        multiplier: symbol.multiplier * 3,
+        winningReels: [0, 1, 2, 3, 4],
+        kind: "five",
+        symbolId: first,
+        description: symbol.name + " x5",
+      };
+    }
+
+    const fourOfAKind = checkFourOfAKind(outcomeIds);
+    if (fourOfAKind) {
+      const symbol = symbolMap[fourOfAKind.symbolId];
+      return {
+        multiplier: symbol.multiplier * 2,
+        winningReels: fourOfAKind.reels,
+        kind: "four",
+        symbolId: fourOfAKind.symbolId,
+        description: symbol.name + " x4",
+      };
+    }
+
+    const threeOfAKind = checkThreeOfAKind(outcomeIds);
+    if (threeOfAKind) {
+      const symbol = symbolMap[threeOfAKind.symbolId];
+      return {
+        multiplier: symbol.multiplier,
+        winningReels: threeOfAKind.reels,
         kind: "three",
-        symbolId: first,
-        description: symbolMap[first].name + " x3",
+        symbolId: threeOfAKind.symbolId,
+        description: symbol.name + " x3",
       };
     }
 
-    if (first === second) {
-      return {
-        multiplier: TWO_MATCH_MULTIPLIER,
-        winningReels: [0, 1],
-        kind: "two",
-        symbolId: first,
-        description: "Two matching symbols",
-      };
+    const specialResult = checkSpecialSymbols(outcomeIds);
+    if (specialResult) {
+      return specialResult;
     }
 
-    if (second === third) {
+    const twoOfAKind = checkTwoOfAKind(outcomeIds);
+    if (twoOfAKind) {
       return {
         multiplier: TWO_MATCH_MULTIPLIER,
-        winningReels: [1, 2],
+        winningReels: twoOfAKind.reels,
         kind: "two",
-        symbolId: second,
-        description: "Two matching symbols",
-      };
-    }
-
-    if (first === third) {
-      return {
-        multiplier: TWO_MATCH_MULTIPLIER,
-        winningReels: [0, 2],
-        kind: "two",
-        symbolId: first,
+        symbolId: twoOfAKind.symbolId,
         description: "Two matching symbols",
       };
     }
@@ -1167,9 +1322,90 @@ document.addEventListener("DOMContentLoaded", function () {
       multiplier: 0,
       winningReels: [],
       kind: "none",
-      symbolId: null,
       description: "No win",
     };
+  }
+
+  function checkFourOfAKind(outcomeIds) {
+    const counts = {};
+    outcomeIds.forEach((id, index) => {
+      if (!counts[id]) counts[id] = [];
+      counts[id].push(index);
+    });
+
+    for (const [symbolId, reels] of Object.entries(counts)) {
+      if (reels.length === 4) {
+        return { symbolId, reels };
+      }
+    }
+    return null;
+  }
+
+  function checkThreeOfAKind(outcomeIds) {
+    const counts = {};
+    outcomeIds.forEach((id, index) => {
+      if (!counts[id]) counts[id] = [];
+      counts[id].push(index);
+    });
+
+    for (const [symbolId, reels] of Object.entries(counts)) {
+      if (reels.length === 3) {
+        return { symbolId, reels };
+      }
+    }
+    return null;
+  }
+
+  function checkTwoOfAKind(outcomeIds) {
+    const counts = {};
+    outcomeIds.forEach((id, index) => {
+      if (!counts[id]) counts[id] = [];
+      counts[id].push(index);
+    });
+
+    for (const [symbolId, reels] of Object.entries(counts)) {
+      if (reels.length === 2) {
+        return { symbolId, reels };
+      }
+    }
+    return null;
+  }
+
+  function checkSpecialSymbols(outcomeIds) {
+    const wildCount = outcomeIds.filter(id => id === 'wild').length;
+    if (wildCount >= 3) {
+      return {
+        multiplier: symbolMap['wild'].multiplier * 2,
+        winningReels: outcomeIds.map((id, index) => id === 'wild' ? index : -1).filter(i => i >= 0),
+        kind: "special",
+        symbolId: 'wild',
+        description: "WILD x" + wildCount,
+      };
+    }
+
+    const vegasCount = outcomeIds.filter(id => id === 'vegas').length;
+    if (vegasCount >= 3) {
+      return {
+        multiplier: symbolMap['vegas'].multiplier,
+        winningReels: outcomeIds.map((id, index) => id === 'vegas' ? index : -1).filter(i => i >= 0),
+        kind: "bonus",
+        symbolId: 'vegas',
+        description: "VEGAS BABY FREE SPINS!",
+      };
+    }
+
+    const coinCount = outcomeIds.filter(id => id === 'coin').length;
+    if (coinCount >= 3) {
+      return {
+        multiplier: symbolMap['coin'].multiplier,
+        winningReels: outcomeIds.map((id, index) => id === 'coin' ? index : -1).filter(i => i >= 0),
+        kind: "jackpot",
+        symbolId: 'coin',
+        description: "COIN JACKPOT!",
+      };
+    }
+
+    return null;
   }
 
   function highlightWinningSymbols(reelIndexes) {
@@ -1208,10 +1444,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
       const elapsed = Math.min(time - previousTime, 32);
       previousTime = time;
-      currentPosition += elapsed * (1.42 + reelIndex * 0.22);
+      currentPosition += elapsed * (1.78 + reelIndex * 0.28);
 
-      if (currentPosition > finalPosition - reelHeight * 2) {
-        currentPosition = reelHeight * 1.6;
+      if (currentPosition > finalPosition - reelHeight * 2.2) {
+        currentPosition = reelHeight * (1.2 + reelIndex * 0.06);
       }
 
       reelEl.style.transform = "translateY(-" + currentPosition + "px)";
@@ -1226,9 +1462,9 @@ document.addEventListener("DOMContentLoaded", function () {
         window.cancelAnimationFrame(animationFrameId);
 
         return new Promise(function (resolve) {
-          const settleTime = 720 + reelIndex * 180;
+          const settleTime = 560 + reelIndex * 130;
 
-          reelEl.style.transition = "transform " + settleTime + "ms cubic-bezier(0.15, 0.85, 0.24, 1)";
+          reelEl.style.transition = "transform " + settleTime + "ms cubic-bezier(0.2, 0.92, 0.2, 1)";
           reelEl.style.transform = "translateY(-" + finalPosition + "px)";
 
           sound.reelStop();
@@ -1642,39 +1878,49 @@ document.addEventListener("DOMContentLoaded", function () {
 
     sound.click();
     if (state.musicEnabled && !state.musicPlaying) {
-      ambientMusic.start();
+      safeStartAmbientMusic();
     }
 
     if (state.bet <= 0) {
-      showMessage("Your bet is too low. Raise it to at least 10 credits.", "loss");
+      showMessage("Your bet is too low. Raise it to at least 10 virtual coins.", "loss");
       updateUi();
       return;
     }
 
     if (state.freeSpins === 0 && state.balance < state.bet) {
-      showMessage("You do not have enough balance for that spin. Lower the bet or press Reset.", "loss");
+      showMessage("Not enough virtual coins for that spin. Lower your bet or press Reset.", "loss");
       updateUi();
       return;
     }
 
+    const balanceBeforeRound = state.balance;
     state.spinning = true;
     state.spinCount += 1;
     clearWinningHighlights();
+    if (winAmountEl) {
+      winAmountEl.textContent = "0";
+    }
 
     const usingFreeSpin = state.freeSpins > 0;
     const wager = state.bet;
 
     if (usingFreeSpin) {
       state.freeSpins -= 1;
-      showMessage("Free spin activated. This spin pays double on wins.", "bonus");
+      showMessage("Free spin activated. This spin pays 2x on wins.", "bonus");
     } else {
       state.balance -= wager;
-      showMessage("Reels spinning for Lynne... the room is gathering sparkle.", "");
+      showMessage("Spinning for " + formatNumber(wager) + " VC... good luck!", "");
     }
 
     updateUi();
 
-    const outcomeIds = [chooseWeightedSymbol(), chooseWeightedSymbol(), chooseWeightedSymbol()];
+    const outcomeIds = [
+      chooseWeightedSymbol(), 
+      chooseWeightedSymbol(), 
+      chooseWeightedSymbol(), 
+      chooseWeightedSymbol(), 
+      chooseWeightedSymbol()
+    ];
     const strips = outcomeIds.map(function (symbolId, reelIndex) {
       return buildStrip(symbolId, BASE_STRIP_LENGTH + reelIndex * 8);
     });
@@ -1683,11 +1929,12 @@ document.addEventListener("DOMContentLoaded", function () {
       return spinSingleReel(reelEl, strips[reelIndex], reelIndex);
     });
 
-    await reelControllers[0].stop();
-    await delay(220);
-    await reelControllers[1].stop();
-    await delay(220);
-    await reelControllers[2].stop();
+    for (let reelIndex = 0; reelIndex < reelControllers.length; reelIndex += 1) {
+      await reelControllers[reelIndex].stop();
+      if (reelIndex < reelControllers.length - 1) {
+        await delay(Math.max(84, 150 - reelIndex * 18));
+      }
+    }
 
     const result = evaluateResult(outcomeIds);
     const payoutMultiplier = usingFreeSpin ? result.multiplier * state.freeSpinMultiplier : result.multiplier;
@@ -1698,42 +1945,31 @@ document.addEventListener("DOMContentLoaded", function () {
       state.balance += baseWinnings;
       highlightWinningSymbols(result.winningReels);
 
+      // Show big win display for large wins
+      if (baseWinnings >= 500 || result.kind === "five" || result.kind === "jackpot") {
+        if (bigWinDisplayEl && bigWinNumberEl) {
+          bigWinNumberEl.textContent = formatNumber(baseWinnings);
+          bigWinDisplayEl.classList.remove("hidden");
+          setTimeout(() => {
+            bigWinDisplayEl.classList.add("hidden");
+          }, 3000);
+        }
+      }
+
       if (payoutMultiplier >= BIG_WIN_MULTIPLIER) {
         pulseBigWin();
         triggerWinExplosion("big");
         sound.bigWin();
-        showMessage(
-          "Big win! " + result.description + " paid " + formatNumber(baseWinnings) + " credits.",
-          "big-win"
-        );
         await requestGuideStory("big_win", {
-          recentOutcome: result.description + " paid " + formatNumber(baseWinnings) + " credits.",
+          recentOutcome: result.description + " paid " + formatNumber(baseWinnings) + " virtual coins.",
         });
         await maybeAdvanceWorldStage("big win evolution");
       } else {
         triggerWinExplosion("small");
         sound.smallWin();
-        showMessage(
-          "Nice win! " + result.description + " paid " + formatNumber(baseWinnings) + " credits.",
-          "win"
-        );
       }
 
       bonusWinnings = await handleBonusRounds(result, wager);
-
-      if (bonusWinnings > 0) {
-        showMessage(
-          "Bonus winnings added " + formatNumber(bonusWinnings) + " extra credits on top of the regular win.",
-          "bonus"
-        );
-      }
-    } else {
-      showMessage(
-        usingFreeSpin
-          ? "No win on that free spin, but it cost you nothing."
-          : "No win this time. You spent " + formatNumber(wager) + " credits.",
-        "loss"
-      );
     }
 
     const premiumTriple =
@@ -1743,9 +1979,60 @@ document.addEventListener("DOMContentLoaded", function () {
       setStoryOutput(localSpinFlavor(result, usingFreeSpin, outcomeIds));
     }
 
+    let sparkTriggered = false;
     if (shouldTriggerSparkBonus(result)) {
+      sparkTriggered = true;
       await runMysterySparkBonus(wager);
     }
+
+    const totalRoundWin = baseWinnings + bonusWinnings;
+    const netChange = state.balance - balanceBeforeRound;
+    const betLabel = usingFreeSpin ? "Free spin" : "Bet " + formatNumber(wager) + " VC";
+    let roundSummary = "";
+    let roundTone = "loss";
+
+    if (totalRoundWin > 0) {
+      const winLead = payoutMultiplier >= BIG_WIN_MULTIPLIER ? "JACKPOT HIT!" : "WIN!";
+      const bonusLabel = bonusWinnings > 0 ? " + Bonus " + formatNumber(bonusWinnings) + " VC" : "";
+      const sparkLabel = sparkTriggered ? " + Mystery Spark" : "";
+      roundSummary =
+        winLead +
+        " " +
+        result.description +
+        " • " +
+        betLabel +
+        " • +" +
+        formatNumber(totalRoundWin) +
+        " VC" +
+        bonusLabel +
+        sparkLabel +
+        " • Balance " +
+        formatNumber(state.balance) +
+        " VC";
+      roundTone = payoutMultiplier >= BIG_WIN_MULTIPLIER ? "big-win" : (bonusWinnings > 0 ? "bonus" : "win");
+      pulseStatusCard(winAmountEl, "win");
+      pulseStatusCard(balanceEl, "win");
+    } else {
+      roundSummary =
+        (usingFreeSpin ? "No win this free spin." : "No win this round.") +
+        " " +
+        betLabel +
+        " • " +
+        (usingFreeSpin ? "0 VC spent" : "-" + formatNumber(wager) + " VC") +
+        " • Balance " +
+        formatNumber(state.balance) +
+        " VC";
+      if (sparkTriggered && netChange > 0) {
+        roundSummary += " • Mystery Spark kept this round profitable.";
+        pulseStatusCard(balanceEl, "win");
+      } else {
+        pulseStatusCard(balanceEl, "loss");
+      }
+    }
+    if (winAmountEl) {
+      winAmountEl.textContent = formatNumber(totalRoundWin);
+    }
+    showMessage(roundSummary, roundTone);
 
     if (state.freeSpins === 0) {
       state.freeSpinMultiplier = FREE_SPIN_MULTIPLIER;
@@ -1776,7 +2063,8 @@ document.addEventListener("DOMContentLoaded", function () {
   function toggleMusic() {
     state.musicEnabled = !state.musicEnabled;
     if (state.musicEnabled) {
-      ambientMusic.start();
+      audioUnlocked = true;
+      safeStartAmbientMusic();
     } else {
       ambientMusic.stop();
     }
@@ -1791,6 +2079,7 @@ document.addEventListener("DOMContentLoaded", function () {
         return;
       }
       unlocked = true;
+      audioUnlocked = true;
 
       const ctx = ensureAudioContext();
       if (ctx && ctx.state === "suspended") {
@@ -1798,7 +2087,7 @@ document.addEventListener("DOMContentLoaded", function () {
       }
 
       if (state.musicEnabled && !state.musicPlaying) {
-        ambientMusic.start();
+        safeStartAmbientMusic();
       }
 
       window.removeEventListener("pointerdown", unlock);
@@ -1876,6 +2165,22 @@ document.addEventListener("DOMContentLoaded", function () {
     });
     betUpButton.addEventListener("click", function () {
       changeBet(1);
+    });
+    
+    // New button event handlers
+    paytableButton.addEventListener("click", function () {
+      sound.click();
+      showMessage("Pay Table: Cherry 3x=2x, Lemon 3x=3x, Plum 3x=4x, Orange 3x=4x, Watermelon 3x=5x, Bell 3x=8x, Horseshoe 3x=10x, WILD substitutes any symbol, VEGAS triggers free spins, Coin 3x=50x, Seven 3x=30x");
+    });
+    
+    partyCharmsButton.addEventListener("click", function () {
+      sound.click();
+      showMessage("Party Charms: Special bonus features coming soon!");
+    });
+    
+    treasureBoxButton.addEventListener("click", function () {
+      sound.click();
+      showMessage("Treasure Box: Daily rewards and prizes coming soon!");
     });
     window.addEventListener("resize", function () {
       if (!state.spinning) {
