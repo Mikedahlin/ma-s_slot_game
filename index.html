@@ -3,53 +3,72 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Mom's Premium 5-Reel Slots</title>
+    <title>Lynne's Vegas Slots</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
     <main class="casino">
-      <header class="hud">
-        <div class="hud-block">
-          <p class="hud-label">Theme</p>
-          <h1 id="themeTitle">Lynne's Neon Nights</h1>
-          <p id="themeSubtitle">A premium social slot adventure</p>
-          <p class="love-note">Mike loves his mom ❤️</p>
+      <header class="topbar">
+        <div class="topbar-left">
+          <p class="kicker">Vegas Floor Collection</p>
+          <h1 id="themeTitle">Lynne's Starlight Jackpot</h1>
+          <p id="themeSubtitle" class="subtitle">Premium multi-game slot cabinet with live bonuses</p>
+          <p id="aiGuideText" class="guide-text">Lynne, let's warm up with a few steady spins.</p>
         </div>
-        <div class="hud-side">
-          <div class="meter">
-            <p class="hud-label">Balance</p>
-            <p id="balanceValue" class="meter-value">$1000</p>
-          </div>
-          <div class="meter">
-            <p class="hud-label">Bet</p>
-            <p id="betValue" class="meter-value">$25</p>
-          </div>
-          <div class="meter">
-            <p class="hud-label">Last Win</p>
-            <p id="lastWinValue" class="meter-value">$0</p>
-          </div>
-          <div class="meter jackpot-meter">
-            <p class="hud-label">Mega Jackpot</p>
-            <p id="jackpotValue" class="meter-value">$0</p>
-          </div>
-          <div class="meter daily-meter">
-            <p class="hud-label">Daily Streak</p>
-            <p id="dailyStreakValue" class="meter-value">Day 1</p>
-          </div>
-          <button id="muteBtn" class="chip-btn" type="button" aria-pressed="false">Sound: On</button>
-          <label class="volume-wrap" for="volumeSlider">
-            <span>Volume</span>
-            <input id="volumeSlider" type="range" min="0" max="100" value="80" />
+        <div class="topbar-right">
+          <label class="game-select-wrap" for="gameSelect">
+            <span>Game</span>
+            <select id="gameSelect"></select>
           </label>
+          <div class="sound-controls">
+            <button id="muteBtn" class="chip-btn" type="button" aria-pressed="false">Sound: On</button>
+            <label class="volume-wrap" for="volumeSlider">
+              <span>Volume</span>
+              <input id="volumeSlider" type="range" min="0" max="100" value="85" />
+            </label>
+          </div>
         </div>
       </header>
 
+      <section class="dashboard">
+        <article class="meter-card">
+          <p class="meter-label">Balance</p>
+          <p id="balanceValue" class="meter-value">$250,000</p>
+        </article>
+        <article class="meter-card">
+          <p class="meter-label">Bet</p>
+          <p id="betValue" class="meter-value">$2,500</p>
+        </article>
+        <article class="meter-card">
+          <p class="meter-label">Last Win</p>
+          <p id="lastWinValue" class="meter-value">$0</p>
+        </article>
+        <article class="meter-card meter-mini">
+          <p class="meter-label">Mini Jackpot</p>
+          <p id="miniJackpotValue" class="meter-value">$0</p>
+        </article>
+        <article class="meter-card meter-major">
+          <p class="meter-label">Major Jackpot</p>
+          <p id="majorJackpotValue" class="meter-value">$0</p>
+        </article>
+        <article class="meter-card meter-grand">
+          <p class="meter-label">Grand Jackpot</p>
+          <p id="grandJackpotValue" class="meter-value">$0</p>
+        </article>
+        <article class="meter-card">
+          <p class="meter-label">Daily Streak</p>
+          <p id="dailyStreakValue" class="meter-value">Day 1</p>
+        </article>
+        <article class="meter-card">
+          <p class="meter-label">Bonus Meter</p>
+          <p id="bonusMeterValue" class="meter-value">0 / 10</p>
+        </article>
+      </section>
+
       <section class="cabinet">
-        <div class="cabinet-lights"></div>
-        <div class="slot-header">
-          <p id="slotMessage" class="slot-message">Press SPIN to play</p>
-        </div>
-        <div class="reel-strip-shell">
+        <div class="cabinet-lights" aria-hidden="true"></div>
+        <p id="slotMessage" class="slot-message">Press SPIN to start.</p>
+        <div class="reel-shell">
           <div id="reelStrip" class="reel-strip" aria-live="polite"></div>
         </div>
         <div class="controls-row">
@@ -59,18 +78,21 @@
         </div>
       </section>
 
-      <section class="info-panel">
-        <article class="info-card">
-          <h3>Payout Table (scaled by bet)</h3>
-          <p>Match 3+ of a symbol anywhere on the 5 reels.</p>
-          <p><strong>Bonus trigger rule:</strong> 3+ <span class="bonus-badge">BONUS</span> symbols anywhere triggers a bonus game. Connected chains get red link-line effects.</p>
-          <ul id="payoutTable" class="payout-list"></ul>
+      <section class="info-panels">
+        <article class="panel">
+          <h2>Payout Table</h2>
+          <p>Line wins pay left-to-right on 5 paylines (3 rows + 2 diagonals).</p>
+          <ul id="payoutTable"></ul>
+        </article>
+        <article class="panel">
+          <h2>Bonus Rounds</h2>
+          <ul id="bonusRoundList"></ul>
         </article>
       </section>
 
       <section id="bonusOverlay" class="bonus-overlay hidden" aria-hidden="true">
         <div class="bonus-card">
-          <h2 id="bonusTitle">Bonus</h2>
+          <h2 id="bonusTitle">Bonus Round</h2>
           <p id="bonusIntro"></p>
           <div id="bonusBody"></div>
           <button id="bonusContinueBtn" class="chip-btn hidden" type="button">Continue</button>

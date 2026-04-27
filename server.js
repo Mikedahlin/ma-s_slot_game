@@ -10,6 +10,9 @@ dotenv.config();
 
 const app = express();
 const port = Number.parseInt(process.env.PORT || "3000", 10);
+if (process.env.NODE_ENV === "production") {
+  app.set("trust proxy", 1);
+}
 
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || "")
   .split(",")
@@ -64,7 +67,13 @@ function normalizeModelChoice(value, fallback) {
     lowered === "gpt-5.0-minis" ||
     lowered === "gpt5.0-minis" ||
     lowered === "gpt-5-" ||
-    lowered === "gpt5-"
+    lowered === "gpt5-" ||
+    lowered === "gpt-40" ||
+    lowered === "gpt40" ||
+    lowered === "gpt-40-mini" ||
+    lowered === "gpt40mini" ||
+    lowered === "gpt-4-0" ||
+    lowered === "gpt4-0"
   ) {
     return fallback;
   }
@@ -75,6 +84,14 @@ function normalizeModelChoice(value, fallback) {
 
   if (lowered === "gpt-5.0" || lowered === "gpt5.0") {
     return "gpt-5";
+  }
+
+  if (lowered === "gpt-4omini" || lowered === "gpt4omini") {
+    return "gpt-4o-mini";
+  }
+
+  if (lowered === "gpt-4o" || lowered === "gpt4o") {
+    return "gpt-4o";
   }
 
   return rawValue.trim();
@@ -91,7 +108,16 @@ function normalizeImageModelChoice(value) {
   const lowered = rawValue.toLowerCase().replace(/\s+/g, "");
 
   // Common typo seen in env vars; route to a known-good image model.
-  if (lowered === "gpt-40-mini" || lowered === "gpt40mini") {
+  if (
+    lowered === "gpt-40-mini" ||
+    lowered === "gpt40mini" ||
+    lowered === "gpt-40" ||
+    lowered === "gpt40" ||
+    lowered === "gpt-4o-mini" ||
+    lowered === "gpt4omini" ||
+    lowered === "gpt-4o" ||
+    lowered === "gpt4o"
+  ) {
     return "gpt-image-1";
   }
 
@@ -105,6 +131,8 @@ const imageControllerModel = normalizeImageModelChoice(
 const steelWebsocketEndpoint = String(process.env.STEEL_WS_ENDPOINT || "wss://connect.steel.dev").trim();
 const steelApiKey = String(process.env.STEEL_API_KEY || "").trim();
 const steelProjectId = String(process.env.STEEL_PROJECT_ID || "").trim();
+const steelAgentEnabled = String(process.env.ENABLE_STEEL_AGENT || "false").trim().toLowerCase() === "true";
+const steelAgentToken = String(process.env.STEEL_AGENT_TOKEN || "").trim();
 const steelAllowedHosts = new Set(
   String(process.env.STEEL_ALLOWED_HOSTS || "")
     .split(",")
@@ -183,8 +211,7 @@ const fallbackThemePrompts = [
 app.use(express.json({ limit: "2mb" }));
 
 function getClientIp(request) {
-  const forwarded = String(request.headers["x-forwarded-for"] || "").split(",")[0].trim();
-  return forwarded || request.socket?.remoteAddress || "unknown";
+  return request.ip || request.socket?.remoteAddress || "unknown";
 }
 
 function createRateLimiter(options) {
@@ -262,6 +289,7 @@ app.get("/health", function (request, response) {
 app.use("/api", apiAuditLogger, apiGlobalLimiter);
 
 app.get("/api/config/models", function (request, response) {
+  const includeSensitive = process.env.NODE_ENV !== "production";
   response.json({
     ok: true,
     ai: {
@@ -269,11 +297,13 @@ app.get("/api/config/models", function (request, response) {
       textModel,
       imageModel: imageControllerModel,
       hasOpenAiKey: Boolean(process.env.OPENAI_API_KEY),
-      expectedEnvVars: ["OPENAI_API_KEY", "OPENAI_TEXT_MODEL", "OPENAI_IMAGE_CONTROLLER_MODEL"],
+      expectedEnvVars: includeSensitive
+        ? ["OPENAI_API_KEY", "OPENAI_TEXT_MODEL", "OPENAI_IMAGE_CONTROLLER_MODEL"]
+        : [],
     },
     steel: {
       configured: Boolean(steelApiKey),
-      websocketEndpoint: steelWebsocketEndpoint,
+      websocketEndpoint: includeSensitive ? steelWebsocketEndpoint : undefined,
       hasProjectId: Boolean(steelProjectId),
     },
   });
@@ -364,9 +394,9 @@ function buildFallbackTheme({ themePrompt, worldStage, reason, currentTheme }) {
     source: "fallback",
     themeName: "Lynne's " + titleCase(sourcePrompt),
     caption:
-      "Local cozy mode is active. The world is shifting toward " +
+      "The world is shifting toward " +
       sourcePrompt +
-      " while we wait for live AI art.",
+      " with premium evolving neon-casino style.",
     storyWhisper:
       "The room is still changing for you, Lynne. Even in local mode, the " +
       sourcePrompt +
@@ -676,7 +706,7 @@ async function generateTheme(payload) {
       ...themedResult,
       source: generatedImage ? "openai-image" : themedResult.source,
       caption: generatedImage
-        ? "Live AI art is active. The world is evolving into a richer, dreamier bonus lounge for Lynne."
+        ? "Fresh deluxe artwork loaded. Lynne's world is evolving into a richer, dreamier bonus lounge."
         : themedResult.caption,
       backgroundImageDataUrl: generatedImage?.b64_json
         ? "data:image/png;base64," + generatedImage.b64_json
@@ -717,7 +747,33 @@ app.post("/api/ai/theme", aiLimiter, async (request, response) => {
   response.json(await generateTheme(payload));
 });
 
-app.get("/api/agent/steel/health", function (request, response) {
+function requireSteelAgentAuth(request, response, next) {
+  if (!steelAgentEnabled) {
+    response.status(503).json({
+      ok: false,
+      error: "Steel agent endpoints are disabled. Set ENABLE_STEEL_AGENT=true to enable.",
+    });
+    return;
+  }
+  if (!steelAgentToken) {
+    response.status(503).json({
+      ok: false,
+      error: "Steel agent token missing on server. Set STEEL_AGENT_TOKEN.",
+    });
+    return;
+  }
+  const incomingToken = String(request.headers["x-steel-agent-token"] || "");
+  if (!incomingToken || incomingToken !== steelAgentToken) {
+    response.status(401).json({
+      ok: false,
+      error: "Unauthorized steel agent request.",
+    });
+    return;
+  }
+  next();
+}
+
+app.get("/api/agent/steel/health", requireSteelAgentAuth, function (request, response) {
   response.json({
     ok: true,
     configured: Boolean(steelApiKey),
@@ -726,7 +782,7 @@ app.get("/api/agent/steel/health", function (request, response) {
   });
 });
 
-app.post("/api/agent/steel/navigate", steelLimiter, async (request, response) => {
+app.post("/api/agent/steel/navigate", requireSteelAgentAuth, steelLimiter, async (request, response) => {
   const targetUrl = String(request.body?.url || "").trim();
   if (!targetUrl) {
     response.status(400).json({ ok: false, error: "Missing required body field: url" });

@@ -1,5 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const testPort = Number(process.env.PW_PORT || 3010);
+const testBaseUrl = `http://localhost:${testPort}`;
+
 export default defineConfig({
   testDir: "./tests",
   fullyParallel: true,
@@ -8,13 +11,17 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: "list",
   use: {
-    baseURL: "http://localhost:3000",
+    baseURL: testBaseUrl,
     trace: "on-first-retry",
   },
   webServer: {
     command: "npm run start",
-    url: "http://localhost:3000/health",
+    url: `${testBaseUrl}/health`,
     reuseExistingServer: !process.env.CI,
+    env: {
+      ...process.env,
+      PORT: String(testPort),
+    },
     timeout: 120000,
   },
   projects: [
