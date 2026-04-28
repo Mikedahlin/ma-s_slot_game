@@ -54,6 +54,7 @@ type SoundName =
   | "winSmall"
   | "winBig"
   | "winMega"
+  | "bonusTrigger"
   | "mission"
   | "ambience";
 
@@ -64,6 +65,7 @@ const soundPathByName: Record<SoundName, string> = {
   winSmall: "/audio/win-small.wav",
   winBig: "/audio/win-big.wav",
   winMega: "/audio/win-mega.wav",
+  bonusTrigger: "/audio/bonus-trigger.wav",
   mission: "/audio/mission-complete.wav",
   ambience: "/audio/ambience-loop.wav"
 };
@@ -105,14 +107,15 @@ export default function Page() {
       soundsRef.current[name] = audio;
     };
 
-    createSound("button", false, 0.35);
-    createSound("spin", false, 0.45);
-    createSound("reelStop", false, 0.4);
-    createSound("winSmall", false, 0.45);
-    createSound("winBig", false, 0.5);
-    createSound("winMega", false, 0.55);
-    createSound("mission", false, 0.52);
-    createSound("ambience", true, 0.2);
+    createSound("button", false, 0.22);
+    createSound("spin", false, 0.38);
+    createSound("reelStop", false, 0.25);
+    createSound("winSmall", false, 0.4);
+    createSound("winBig", false, 0.48);
+    createSound("winMega", false, 0.56);
+    createSound("bonusTrigger", false, 0.5);
+    createSound("mission", false, 0.4);
+    createSound("ambience", true, 0.12);
 
     return () => {
       Object.values(soundsRef.current).forEach((audio) => {
@@ -142,6 +145,13 @@ export default function Page() {
     void audio.play().catch(() => {
       // Ignore audio play errors caused by browser policy.
     });
+  };
+
+  const stopSound = (name: SoundName) => {
+    const audio = soundsRef.current[name];
+    if (!audio) return;
+    audio.pause();
+    audio.currentTime = 0;
   };
 
   const fetchLynneArt = async (payload: {
@@ -237,6 +247,7 @@ export default function Page() {
         );
       } else {
         const okData = data as SpinResponse;
+        stopSound("spin");
         setSymbols(okData.result.symbols);
         setWinAmount(okData.result.winAmount);
         setWinTier(okData.result.winTier);
@@ -257,7 +268,7 @@ export default function Page() {
         }
 
         if (okData.result.bonus.triggered) {
-          playSound("winMega");
+          playSound("bonusTrigger");
           if (okData.result.bonus.isFreeSpin) {
             setBonusStatus(
               `RETRIGGER! +${okData.result.bonus.freeSpinsAwarded} free spins awarded.`
@@ -284,6 +295,7 @@ export default function Page() {
         });
       }
     } catch {
+      stopSound("spin");
       setPromoStatus("Network error: backend may be offline.");
     } finally {
       setSpinning(false);

@@ -1,6 +1,6 @@
 ﻿{
-    "generatedAtUtc":  "2026-04-28T08:00:14.2612791Z",
-    "totalFiles":  34,
+    "generatedAtUtc":  "2026-04-28T08:22:49.7061826Z",
+    "totalFiles":  35,
     "protectedRoots":  [
                            "backend/src",
                            "frontend/app",
@@ -60,8 +60,8 @@
                     },
                     {
                         "path":  "frontend/app/page.tsx",
-                        "sha256":  "3f683cffde34d14994634c4f7b3731af6c3a49dad8bf329a44cd2c4cfe63d94e",
-                        "size":  11863
+                        "sha256":  "e7bc79d216c0f5b4a4f8918d4994a96fd0f2e3580bd68463745d3b1b880df2b2",
+                        "size":  12191
                     },
                     {
                         "path":  "frontend/components/LynneArtBox.tsx",
@@ -100,8 +100,13 @@
                     },
                     {
                         "path":  "frontend/public/audio/ambience-loop.wav",
-                        "sha256":  "bcd9934a64e23f252c0b5d8ec5aeaa074814b66f759a1f5f624fdc94da3fa15b",
-                        "size":  705644
+                        "sha256":  "ccbb0d8ffadba377100ffeed60ed32a04769c14e43ecb117a2bf3194fa75c079",
+                        "size":  702620
+                    },
+                    {
+                        "path":  "frontend/public/audio/bonus-trigger.wav",
+                        "sha256":  "7ac70e8b0d97126c6ea6d0be20a9e7082e27ef4ff4a549322798a57eaa40b69d",
+                        "size":  1077396
                     },
                     {
                         "path":  "frontend/public/audio/button.wav",
@@ -110,13 +115,13 @@
                     },
                     {
                         "path":  "frontend/public/audio/mission-complete.wav",
-                        "sha256":  "653533ebdb7f5f67e898f3c4d5693859b898f9a729718139bea401a2bbec2b1b",
-                        "size":  52964
+                        "sha256":  "d04e73c788024caf72fed201a106515e6bdbd8f6b73ef44506a896b590c9be3a",
+                        "size":  718004
                     },
                     {
                         "path":  "frontend/public/audio/README.md",
-                        "sha256":  "fcc7a4c3cb11e6ced8239fd878b9b4f92f94baa3f4e75cce130183c3069c7967",
-                        "size":  452
+                        "sha256":  "95c107cbaeb2de1db689ece2742c8ef8f5a5627cb39a18ddddef9b654cef790e",
+                        "size":  615
                     },
                     {
                         "path":  "frontend/public/audio/reel-stop.wav",
@@ -125,23 +130,23 @@
                     },
                     {
                         "path":  "frontend/public/audio/spin.wav",
-                        "sha256":  "47c10f473596bf14e520f672bdcdd569231dbb219adee5e88980b8adcc334c68",
-                        "size":  75014
+                        "sha256":  "7ac70e8b0d97126c6ea6d0be20a9e7082e27ef4ff4a549322798a57eaa40b69d",
+                        "size":  1077396
                     },
                     {
                         "path":  "frontend/public/audio/win-big.wav",
-                        "sha256":  "28ffeebf440018ab800f8b4c674455b1276b2f0ce54907c338b7f302ce86ac8a",
-                        "size":  54728
+                        "sha256":  "ccbb0d8ffadba377100ffeed60ed32a04769c14e43ecb117a2bf3194fa75c079",
+                        "size":  702620
                     },
                     {
                         "path":  "frontend/public/audio/win-mega.wav",
-                        "sha256":  "208da6ef4fa95e39089db32f81bf7f963736b5e2e058df63206394c92647edeb",
-                        "size":  79424
+                        "sha256":  "07e991e2ae1157ca60d7b4c8670df6be55da6ca827ff26db60cddd06e700a18b",
+                        "size":  1241128
                     },
                     {
                         "path":  "frontend/public/audio/win-small.wav",
-                        "sha256":  "9b1c31133f569a9fced952a4199998381f4907d827f09103e803c4d7a9fe01bb",
-                        "size":  28268
+                        "sha256":  "4d967bf38d5f141068b2883b10ba3bfe34df2e78809b78b347f1430c00ceaaa9",
+                        "size":  706330
                     },
                     {
                         "path":  "frontend/public/slots/bell.svg",
