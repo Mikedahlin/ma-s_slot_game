@@ -1,0 +1,182 @@
+﻿{
+    "generatedAtUtc":  "2026-04-28T08:00:14.2612791Z",
+    "totalFiles":  34,
+    "protectedRoots":  [
+                           "backend/src",
+                           "frontend/app",
+                           "frontend/components",
+                           "frontend/public"
+                       ],
+    "entries":  [
+                    {
+                        "path":  "backend/.env.example",
+                        "sha256":  "8c5b44ccac6827cdf34a7697d6b4e20542f83e9ee4d1094fbd212dc181a10b5a",
+                        "size":  33
+                    },
+                    {
+                        "path":  "backend/package.json",
+                        "sha256":  "c08e94c538a8036506a44a8ef796ddf9c3fbd68acb48b960e1607c4a02940e9c",
+                        "size":  342
+                    },
+                    {
+                        "path":  "backend/src/ai.ts",
+                        "sha256":  "ac511f15ba285250fde423256a346bd607e804618321b465ff63adde41adaaa1",
+                        "size":  7816
+                    },
+                    {
+                        "path":  "backend/src/game.ts",
+                        "sha256":  "6b0378275c427b613ed5f2be938547e2fbc2f38025830934ade18f3386895f85",
+                        "size":  4568
+                    },
+                    {
+                        "path":  "backend/src/index.ts",
+                        "sha256":  "ff16d4fd34d3e85299d4518b050e72d28757867012b4b445b8032234afed6b3a",
+                        "size":  2072
+                    },
+                    {
+                        "path":  "backend/src/missions.ts",
+                        "sha256":  "0ba17b90128da3355775856db5ddc55fc589a7a26619f3fb191e496b6c7ef604",
+                        "size":  928
+                    },
+                    {
+                        "path":  "backend/src/promo.ts",
+                        "sha256":  "5861f036545e5c456323ed31b069db110ed5d1f1a179501f8c14da1165e48212",
+                        "size":  1035
+                    },
+                    {
+                        "path":  "backend/src/wallet.ts",
+                        "sha256":  "948468ffd65f40b03298616ca56815e8a365319eeaf00363ac509195a5c07a77",
+                        "size":  1280
+                    },
+                    {
+                        "path":  "backend/tsconfig.json",
+                        "sha256":  "8dec8a2885bc4fa9967936b6c7efc3cacef04968fcff6855fe81fd0997366fb8",
+                        "size":  232
+                    },
+                    {
+                        "path":  "frontend/app/layout.tsx",
+                        "sha256":  "a550647e80f95ee4aa2068acb3a999dc63ec0c0cbc489f00743fa65ef2b4ab65",
+                        "size":  490
+                    },
+                    {
+                        "path":  "frontend/app/page.tsx",
+                        "sha256":  "3f683cffde34d14994634c4f7b3731af6c3a49dad8bf329a44cd2c4cfe63d94e",
+                        "size":  11863
+                    },
+                    {
+                        "path":  "frontend/components/LynneArtBox.tsx",
+                        "sha256":  "8ff39ed5fdefb25f3109aeea6459ea2f814fd6caadab2e5bdc866295779de793",
+                        "size":  2312
+                    },
+                    {
+                        "path":  "frontend/components/MissionsPanel.tsx",
+                        "sha256":  "ffcfce2404bd3009118b87ec33c6e17d077ce7124ddeda0832a5b0746a1eea68",
+                        "size":  1319
+                    },
+                    {
+                        "path":  "frontend/components/PromoInput.tsx",
+                        "sha256":  "66e16d120ff6eebe65332f2fc607b0707b30b2f4c2aaac937c9ca39fac0e568e",
+                        "size":  1347
+                    },
+                    {
+                        "path":  "frontend/components/SlotMachine.tsx",
+                        "sha256":  "96778da011ecf99061a7b18fe25d705f1eb661036d42b6e58273ad8f47a5ec5a",
+                        "size":  3652
+                    },
+                    {
+                        "path":  "frontend/components/WalletBar.tsx",
+                        "sha256":  "d3b626668d1a56b40a012eb3474cacb745f929b699fc6c958d47bda12b07d5f7",
+                        "size":  749
+                    },
+                    {
+                        "path":  "frontend/next-env.d.ts",
+                        "sha256":  "9269d492817e359123ac64c8205e5d05dab63d71a3a7a229e68b5d9a0e8150bf",
+                        "size":  201
+                    },
+                    {
+                        "path":  "frontend/package.json",
+                        "sha256":  "7ca9bb767e8426b22946ddf8b237b41cb74aad9fa3756d49098af881b447d612",
+                        "size":  362
+                    },
+                    {
+                        "path":  "frontend/public/audio/ambience-loop.wav",
+                        "sha256":  "bcd9934a64e23f252c0b5d8ec5aeaa074814b66f759a1f5f624fdc94da3fa15b",
+                        "size":  705644
+                    },
+                    {
+                        "path":  "frontend/public/audio/button.wav",
+                        "sha256":  "b1092d2cfbdda3f03753ecdebfcfd13cdb7a7d6482f64280a0cf6c4d7a7b70de",
+                        "size":  7100
+                    },
+                    {
+                        "path":  "frontend/public/audio/mission-complete.wav",
+                        "sha256":  "653533ebdb7f5f67e898f3c4d5693859b898f9a729718139bea401a2bbec2b1b",
+                        "size":  52964
+                    },
+                    {
+                        "path":  "frontend/public/audio/README.md",
+                        "sha256":  "fcc7a4c3cb11e6ced8239fd878b9b4f92f94baa3f4e75cce130183c3069c7967",
+                        "size":  452
+                    },
+                    {
+                        "path":  "frontend/public/audio/reel-stop.wav",
+                        "sha256":  "adbcce2c965114a3f6865914cb154933689a85f376b8d985a7f151d4cc1e4b41",
+                        "size":  9746
+                    },
+                    {
+                        "path":  "frontend/public/audio/spin.wav",
+                        "sha256":  "47c10f473596bf14e520f672bdcdd569231dbb219adee5e88980b8adcc334c68",
+                        "size":  75014
+                    },
+                    {
+                        "path":  "frontend/public/audio/win-big.wav",
+                        "sha256":  "28ffeebf440018ab800f8b4c674455b1276b2f0ce54907c338b7f302ce86ac8a",
+                        "size":  54728
+                    },
+                    {
+                        "path":  "frontend/public/audio/win-mega.wav",
+                        "sha256":  "208da6ef4fa95e39089db32f81bf7f963736b5e2e058df63206394c92647edeb",
+                        "size":  79424
+                    },
+                    {
+                        "path":  "frontend/public/audio/win-small.wav",
+                        "sha256":  "9b1c31133f569a9fced952a4199998381f4907d827f09103e803c4d7a9fe01bb",
+                        "size":  28268
+                    },
+                    {
+                        "path":  "frontend/public/slots/bell.svg",
+                        "sha256":  "98fbc6fdd24c5ae57f214b2feaf4eed89ad4041e37bba3f46865a18e0f8714ae",
+                        "size":  384
+                    },
+                    {
+                        "path":  "frontend/public/slots/cherry.svg",
+                        "sha256":  "5d37690ca750997acdfaa615571fe9d9dab09d1ea78febd78f922611cec213db",
+                        "size":  686
+                    },
+                    {
+                        "path":  "frontend/public/slots/diamond.svg",
+                        "sha256":  "c2740e9a3721492fb236d47a241f517e996823c5cafc30ac4651806c82197c53",
+                        "size":  320
+                    },
+                    {
+                        "path":  "frontend/public/slots/README.md",
+                        "sha256":  "2ec289b17f93a5abbf84bdc7acc93e31d7d1e4e3a2854bfc68acccd898d40acf",
+                        "size":  435
+                    },
+                    {
+                        "path":  "frontend/public/slots/seven.svg",
+                        "sha256":  "eba365ce2b12f74fe89f8c9ceb75562c1e26a1a71f3bf1331fb3d0efda76567d",
+                        "size":  299
+                    },
+                    {
+                        "path":  "frontend/public/slots/star.svg",
+                        "sha256":  "2000e2de31ac189de7011c9ad77ccd596da23b8746d26aca6df4b7e29ac1de69",
+                        "size":  256
+                    },
+                    {
+                        "path":  "frontend/tsconfig.json",
+                        "sha256":  "2c5f418abf6d1dce4c536d60aca9f03940ffa555230913b928fa751a0090b4c5",
+                        "size":  609
+                    }
+                ]
+}

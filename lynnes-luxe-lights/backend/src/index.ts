@@ -1,9 +1,11 @@
-﻿import Fastify from "fastify";
+import "dotenv/config";
+import Fastify from "fastify";
 import cors from "@fastify/cors";
 import { getOrCreateWallet } from "./wallet";
 import { spin } from "./game";
 import { getMissions, incrementSpinMission } from "./missions";
 import { redeemPromo } from "./promo";
+import { generateLynneArt } from "./ai";
 
 const app = Fastify();
 app.register(cors, { origin: true });
@@ -47,6 +49,31 @@ app.post("/api/promo/redeem", async (req, reply) => {
     reply.code(400);
     return { error: e.message };
   }
+});
+
+app.post("/api/ai/art", async (req, reply) => {
+  const body = (req.body ?? {}) as {
+    winTier?: "none" | "small" | "big" | "mega";
+    winAmount?: number;
+    missionProgress?: number;
+    missionTarget?: number;
+    event?: string;
+  };
+
+  try {
+    return await generateLynneArt(body);
+  } catch (error) {
+    console.error(error);
+    reply.code(500);
+    return { error: "AI_ART_FAILED" };
+  }
+});
+
+app.get("/api/ai/status", async () => {
+  return {
+    openaiConfigured: Boolean(process.env.OPENAI_API_KEY),
+    googleConfigured: Boolean(process.env.GOOGLE_API_KEY)
+  };
 });
 
 app.listen({ port: 4000, host: "0.0.0.0" }).then(() => {

@@ -1,4 +1,6 @@
-﻿type SpinResult = {
+import Image from "next/image";
+
+type SpinResult = {
   symbols: string[][];
   winAmount: number;
   winTier: "none" | "small" | "big" | "mega";
@@ -10,9 +12,19 @@ type Props = {
   winTier: SpinResult["winTier"];
   spinning: boolean;
   onSpin: () => void;
+  spinLabel?: string;
 };
 
-export function SlotMachine({ symbols, winAmount, winTier, spinning, onSpin }: Props) {
+const symbolImageByValue: Record<string, string> = {
+  "🍒": "/slots/cherry.svg",
+  "🔔": "/slots/bell.svg",
+  "💎": "/slots/diamond.svg",
+  "7️⃣": "/slots/seven.svg",
+  "⭐️": "/slots/star.svg",
+  "⭐": "/slots/star.svg"
+};
+
+export function SlotMachine({ symbols, winAmount, winTier, spinning, onSpin, spinLabel }: Props) {
   return (
     <div
       style={{
@@ -42,26 +54,39 @@ export function SlotMachine({ symbols, winAmount, winTier, spinning, onSpin }: P
               gap: 6
             }}
           >
-            {row.map((sym, cIdx) => (
-              <div
-                key={cIdx}
-                style={{
-                  height: 48,
-                  borderRadius: 8,
-                  background: "rgba(10,10,30,0.9)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: 24,
-                  border:
-                    rIdx === 1
-                      ? "1px solid rgba(255,255,255,0.25)"
-                      : "1px solid rgba(255,255,255,0.08)"
-                }}
-              >
-                {sym}
-              </div>
-            ))}
+            {row.map((sym, cIdx) => {
+              const src = symbolImageByValue[sym];
+              return (
+                <div
+                  key={cIdx}
+                  style={{
+                    height: 52,
+                    borderRadius: 8,
+                    background: "rgba(10,10,30,0.9)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    border:
+                      rIdx === 1
+                        ? "1px solid rgba(255,255,255,0.25)"
+                        : "1px solid rgba(255,255,255,0.08)"
+                  }}
+                >
+                  {src ? (
+                    <Image
+                      src={src}
+                      alt={sym}
+                      width={36}
+                      height={36}
+                      style={{ objectFit: "contain" }}
+                      unoptimized
+                    />
+                  ) : (
+                    <span style={{ fontSize: 24 }}>{sym}</span>
+                  )}
+                </div>
+              );
+            })}
           </div>
         ))}
       </div>
@@ -103,7 +128,7 @@ export function SlotMachine({ symbols, winAmount, winTier, spinning, onSpin }: P
           cursor: spinning ? "default" : "pointer"
         }}
       >
-        {spinning ? "Spinning..." : "SPIN"}
+        {spinning ? "Spinning..." : spinLabel ?? "SPIN"}
       </button>
     </div>
   );
