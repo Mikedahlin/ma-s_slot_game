@@ -1,6 +1,7 @@
 import { applyDelta, getOrCreateWallet, UserId } from "./wallet";
 
 export type MachineId = "vegas_dreams" | "neon_oasis";
+export type SlotSymbol = "cherry" | "bell" | "diamond" | "seven" | "star";
 
 export interface BonusState {
   triggered: boolean;
@@ -13,7 +14,7 @@ export interface BonusState {
 
 export interface SpinResult {
   machineId: MachineId;
-  symbols: string[][];
+  symbols: SlotSymbol[][];
   winAmount: number;
   winTier: "none" | "small" | "big" | "mega";
   newBalance: number;
@@ -24,8 +25,8 @@ const SPIN_COST = 50;
 const BASE_BONUS_FREE_SPINS = 10;
 const RETRIGGER_FREE_SPINS = 5;
 
-const symbolSet = ["🍒", "🔔", "💎", "7️⃣", "⭐️"];
-const scatterSymbol = "⭐️";
+const symbolPool: SlotSymbol[] = ["cherry", "bell", "diamond", "seven", "star"];
+const scatterSymbol: SlotSymbol = "star";
 
 type PlayerBonusRuntime = {
   freeSpinsRemaining: number;
@@ -42,16 +43,16 @@ function getBonusRuntime(userId: UserId): PlayerBonusRuntime {
   return created;
 }
 
-function randomSymbol() {
-  return symbolSet[Math.floor(Math.random() * symbolSet.length)];
+function randomSymbol(): SlotSymbol {
+  return symbolPool[Math.floor(Math.random() * symbolPool.length)];
 }
 
-function generateReels(): string[][] {
+function generateReels(): SlotSymbol[][] {
   const rows = 3;
   const cols = 5;
-  const grid: string[][] = [];
+  const grid: SlotSymbol[][] = [];
   for (let r = 0; r < rows; r++) {
-    const row: string[] = [];
+    const row: SlotSymbol[] = [];
     for (let c = 0; c < cols; c++) {
       row.push(randomSymbol());
     }
@@ -60,7 +61,7 @@ function generateReels(): string[][] {
   return grid;
 }
 
-function countScatters(symbols: string[][]): number {
+function countScatters(symbols: SlotSymbol[][]): number {
   let count = 0;
   for (const row of symbols) {
     for (const symbol of row) {
@@ -71,7 +72,7 @@ function countScatters(symbols: string[][]): number {
 }
 
 function evaluateWin(
-  symbols: string[][],
+  symbols: SlotSymbol[][],
   multiplier = 1
 ): { amount: number; tier: SpinResult["winTier"] } {
   // Simple pay rule: if middle row has 3+ same symbols in a row, pay.
@@ -176,4 +177,3 @@ export function spin(userId: UserId, machineId: MachineId): SpinResult {
     }
   };
 }
-

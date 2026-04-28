@@ -16,12 +16,19 @@ type Props = {
 };
 
 const symbolImageByValue: Record<string, string> = {
-  "🍒": "/slots/cherry.svg",
-  "🔔": "/slots/bell.svg",
-  "💎": "/slots/diamond.svg",
-  "7️⃣": "/slots/seven.svg",
-  "⭐️": "/slots/star.svg",
-  "⭐": "/slots/star.svg"
+  cherry: "/slots/cherry.svg",
+  bell: "/slots/bell.svg",
+  diamond: "/slots/diamond.svg",
+  seven: "/slots/seven.svg",
+  star: "/slots/star.svg"
+};
+
+const symbolLabelByValue: Record<string, string> = {
+  cherry: "Cherry",
+  bell: "Bell",
+  diamond: "Diamond",
+  seven: "Seven",
+  star: "Star"
 };
 
 export function SlotMachine({ symbols, winAmount, winTier, spinning, onSpin, spinLabel }: Props) {
@@ -75,14 +82,16 @@ export function SlotMachine({ symbols, winAmount, winTier, spinning, onSpin, spi
                   {src ? (
                     <Image
                       src={src}
-                      alt={sym}
+                      alt={symbolLabelByValue[sym] ?? "Slot symbol"}
                       width={36}
                       height={36}
                       style={{ objectFit: "contain" }}
                       unoptimized
                     />
                   ) : (
-                    <span style={{ fontSize: 24 }}>{sym}</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, textTransform: "uppercase" }}>
+                      {sym}
+                    </span>
                   )}
                 </div>
               );
@@ -100,8 +109,8 @@ export function SlotMachine({ symbols, winAmount, winTier, spinning, onSpin, spi
                 winTier === "small"
                   ? "#ffd700"
                   : winTier === "big"
-                  ? "#ff69b4"
-                  : "#00e5ff"
+                    ? "#ff69b4"
+                    : "#00e5ff"
             }}
           >
             {winTier.toUpperCase()} WIN +{winAmount.toLocaleString()} coins

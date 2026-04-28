@@ -42,9 +42,9 @@ type LynneArt = {
 const API_URL = "http://localhost:4000";
 
 const defaultSymbols = [
-  ["🍒", "🔔", "💎", "7️⃣", "⭐️"],
-  ["🍒", "🔔", "💎", "7️⃣", "⭐️"],
-  ["🍒", "🔔", "💎", "7️⃣", "⭐️"]
+  ["cherry", "bell", "diamond", "seven", "star"],
+  ["cherry", "bell", "diamond", "seven", "star"],
+  ["cherry", "bell", "diamond", "seven", "star"]
 ];
 
 type SoundName =
@@ -85,10 +85,14 @@ export default function Page() {
   const [bonusStatus, setBonusStatus] = useState<string | null>(null);
   const [freeSpinsRemaining, setFreeSpinsRemaining] = useState(0);
   const [bonusMultiplier, setBonusMultiplier] = useState(1);
+  const [audioStatus, setAudioStatus] = useState<string | null>(
+    "Tap SPIN once to enable game sound in this browser."
+  );
 
   const soundsRef = useRef<Partial<Record<SoundName, HTMLAudioElement>>>({});
   const ambienceStartedRef = useRef(false);
   const missionCompletedPlayedRef = useRef(false);
+  const audioUnlockedRef = useRef(false);
 
   const loungeMessage = useMemo(() => {
     if (freeSpinsRemaining > 0) {
@@ -108,7 +112,7 @@ export default function Page() {
     };
 
     createSound("button", false, 0.22);
-    createSound("spin", false, 0.38);
+    createSound("spin", true, 0.38);
     createSound("reelStop", false, 0.25);
     createSound("winSmall", false, 0.4);
     createSound("winBig", false, 0.48);
@@ -126,6 +130,50 @@ export default function Page() {
     };
   }, []);
 
+  const unlockAudioForBrowser = async () => {
+    if (audioUnlockedRef.current) return true;
+
+    const audios = Object.values(soundsRef.current).filter(
+      (a): a is HTMLAudioElement => Boolean(a)
+    );
+
+    if (audios.length === 0) return false;
+
+    let unlocked = false;
+
+    for (const audio of audios) {
+      const originalLoop = audio.loop;
+      const originalMuted = audio.muted;
+      const originalVolume = audio.volume;
+
+      try {
+        audio.loop = false;
+        audio.muted = true;
+        audio.volume = 0;
+        audio.currentTime = 0;
+        await audio.play();
+        audio.pause();
+        audio.currentTime = 0;
+        unlocked = true;
+      } catch {
+        // Keep trying other clips.
+      } finally {
+        audio.loop = originalLoop;
+        audio.muted = originalMuted;
+        audio.volume = originalVolume;
+      }
+    }
+
+    if (unlocked) {
+      audioUnlockedRef.current = true;
+      setAudioStatus(null);
+      return true;
+    }
+
+    setAudioStatus("Sound is blocked by browser policy. Tap SPIN once more.");
+    return false;
+  };
+
   const startAmbienceIfNeeded = async () => {
     if (ambienceStartedRef.current) return;
     const ambience = soundsRef.current.ambience;
@@ -134,7 +182,7 @@ export default function Page() {
       await ambience.play();
       ambienceStartedRef.current = true;
     } catch {
-      // Browser may block autoplay until user interacts again.
+      setAudioStatus("Background sound is blocked. Keep playing and it should unlock.");
     }
   };
 
@@ -143,7 +191,7 @@ export default function Page() {
     if (!audio) return;
     audio.currentTime = 0;
     void audio.play().catch(() => {
-      // Ignore audio play errors caused by browser policy.
+      setAudioStatus("A sound clip was blocked. Tap SPIN once more to unlock audio.");
     });
   };
 
@@ -226,8 +274,11 @@ export default function Page() {
   const handleSpin = async () => {
     if (spinning) return;
 
-    playSound("button");
-    await startAmbienceIfNeeded();
+    const unlocked = await unlockAudioForBrowser();
+    if (unlocked) {
+      playSound("button");
+      await startAmbienceIfNeeded();
+    }
 
     setSpinning(true);
     setWinTier("none");
@@ -239,6 +290,9 @@ export default function Page() {
         method: "POST"
       });
       const data = (await res.json()) as SpinResponse | { error: string };
+
+      stopSound("spin");
+
       if (!res.ok) {
         setPromoStatus(
           (data as { error: string }).error === "INSUFFICIENT_FUNDS"
@@ -247,7 +301,7 @@ export default function Page() {
         );
       } else {
         const okData = data as SpinResponse;
-        stopSound("spin");
+
         setSymbols(okData.result.symbols);
         setWinAmount(okData.result.winAmount);
         setWinTier(okData.result.winTier);
@@ -279,9 +333,7 @@ export default function Page() {
             );
           }
         } else if (okData.result.bonus.isFreeSpin) {
-          setBonusStatus(
-            `Bonus spin played. ${okData.result.bonus.freeSpinsRemaining} free spins left.`
-          );
+          setBonusStatus(`Bonus spin played. ${okData.result.bonus.freeSpinsRemaining} free spins left.`);
         } else if (okData.result.bonus.freeSpinsRemaining === 0) {
           setBonusStatus(null);
         }
@@ -304,8 +356,12 @@ export default function Page() {
 
   const handleRedeem = async () => {
     if (!promoCode) return;
-    playSound("button");
-    await startAmbienceIfNeeded();
+
+    const unlocked = await unlockAudioForBrowser();
+    if (unlocked) {
+      playSound("button");
+      await startAmbienceIfNeeded();
+    }
 
     setPromoStatus(null);
     try {
@@ -362,6 +418,9 @@ export default function Page() {
 
         <div style={{ marginTop: 8, fontSize: 14, opacity: 0.85 }}>{loungeMessage}</div>
         {aiStatus && <div style={{ marginTop: 6, fontSize: 12, opacity: 0.82 }}>{aiStatus}</div>}
+        {audioStatus && (
+          <div style={{ marginTop: 6, fontSize: 12, opacity: 0.82 }}>{audioStatus}</div>
+        )}
         {bonusStatus && (
           <div
             style={{

@@ -1,5 +1,5 @@
 ﻿{
-    "generatedAtUtc":  "2026-04-28T08:22:49.7061826Z",
+    "generatedAtUtc":  "2026-04-28T09:08:07.2434590Z",
     "totalFiles":  35,
     "protectedRoots":  [
                            "backend/src",
@@ -25,8 +25,8 @@
                     },
                     {
                         "path":  "backend/src/game.ts",
-                        "sha256":  "6b0378275c427b613ed5f2be938547e2fbc2f38025830934ade18f3386895f85",
-                        "size":  4568
+                        "sha256":  "c349cc1cbdfbab481fca88df42f0d620526724363ad6a8d0bc905056b6f7747e",
+                        "size":  4707
                     },
                     {
                         "path":  "backend/src/index.ts",
@@ -60,8 +60,8 @@
                     },
                     {
                         "path":  "frontend/app/page.tsx",
-                        "sha256":  "e7bc79d216c0f5b4a4f8918d4994a96fd0f2e3580bd68463745d3b1b880df2b2",
-                        "size":  12191
+                        "sha256":  "b7c382aeb6295d2d52db61a2d830f1fa86489dfec6e75bc00118d005b0884d72",
+                        "size":  13766
                     },
                     {
                         "path":  "frontend/components/LynneArtBox.tsx",
@@ -80,8 +80,8 @@
                     },
                     {
                         "path":  "frontend/components/SlotMachine.tsx",
-                        "sha256":  "96778da011ecf99061a7b18fe25d705f1eb661036d42b6e58273ad8f47a5ec5a",
-                        "size":  3652
+                        "sha256":  "715819dbd67ebdc785dc57078805182115dda6c0363611fc65ae1af6a0be2fdd",
+                        "size":  3894
                     },
                     {
                         "path":  "frontend/components/WalletBar.tsx",
