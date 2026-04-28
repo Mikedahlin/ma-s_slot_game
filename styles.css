@@ -294,15 +294,23 @@ body::after {
 }
 
 .symbol-art {
-  width: 90%;
-  height: 84%;
-  object-fit: cover;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.34);
-  box-shadow: inset 0 0 7px rgba(255, 255, 255, 0.1), 0 0 8px rgba(0, 0, 0, 0.4);
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  transition: transform 0.2s ease;
+}
+
+.symbol-art:hover {
+  transform: scale(1.05);
 }
 
 .symbol-fallback {
+  background: linear-gradient(135deg, #2a2a3e 0%, #1a1a2e 100%);
+  border: 2px solid #FFD700;
+  border-radius: 4px;
+  font-weight: bold;
   width: 90%;
   height: 84%;
   border-radius: 8px;

@@ -14,6 +14,9 @@ const SYMBOLS = [
   { id: "clover", label: "Clover", short: "CLV", image: "assets/images/clover.jpg", pays: { 3: 4, 4: 10, 5: 24 } },
   { id: "star", label: "Lucky Star", short: "STAR", image: "assets/images/star.jpg", pays: { 3: 5, 4: 12, 5: 28 } },
   { id: "bonus", label: "Bonus", short: "BONUS", image: "assets/images/bonus.jpg", isBonus: true },
+  { id: "bell", label: "Bell", short: "BELL", image: "assets/images/bell.jpg", pays: { 3: 4, 4: 10, 5: 25 } },
+  { id: "bar", label: "Bar", short: "BAR", image: "assets/images/bar.jpg", pays: { 3: 6, 4: 15, 5: 35 } },
+  { id: "orange", label: "Orange", short: "OR", image: "assets/images/orange.jpg", pays: { 3: 3, 4: 8, 5: 18 } },
 ];
 
 const SYMBOL_BY_ID = Object.fromEntries(SYMBOLS.map((symbol) => [symbol.id, symbol]));
@@ -25,6 +28,9 @@ const BASE_SYMBOL_WEIGHTS = {
   clover: 12,
   star: 10,
   bonus: 4,
+  bell: 11,
+  bar: 9,
+  orange: 13,
 };
 
 const GAME_PACKS = [
@@ -396,23 +402,27 @@ function createSymbolVisual(symbolId, { compact = false } = {}) {
   img.alt = symbol.label;
   img.loading = "eager";
   img.decoding = "async";
-  if (compact) {
-    img.style.width = "36px";
-    img.style.height = "36px";
-  }
+  img.style.width = compact ? "36px" : "100%";
+  img.style.height = compact ? "36px" : "100%";
+  img.style.objectFit = "contain";
 
   const fallback = document.createElement("div");
   fallback.className = "symbol-fallback";
   fallback.textContent = symbol.short;
-  if (compact) {
-    fallback.style.width = "36px";
-    fallback.style.height = "36px";
-    fallback.style.fontSize = "0.52rem";
-  }
+  fallback.style.fontSize = compact ? "16px" : "24px";
+  fallback.style.fontWeight = "bold";
+  fallback.style.color = "#FFD700";
+  fallback.style.display = "flex";
+  fallback.style.alignItems = "center";
+  fallback.style.justifyContent = "center";
+  fallback.style.width = compact ? "36px" : "100%";
+  fallback.style.height = compact ? "36px" : "100%";
+  fallback.style.textShadow = "0 2px 4px rgba(0,0,0,0.5)";
 
   img.addEventListener("error", () => {
     img.replaceWith(fallback);
   });
+  
   return img;
 }
 
@@ -870,7 +880,15 @@ function fallbackGuideMessage(eventType) {
 
 async function updateAiGuide(eventType = "spin", recentOutcome = "steady") {
   const fallback = fallbackGuideMessage(eventType);
+  
+  // Always show fallback immediately for better UX
+  dom.aiGuideText.textContent = fallback;
+  
+  // Try AI with timeout and error handling
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
+    
     const response = await fetch("/api/ai/story", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -883,16 +901,30 @@ async function updateAiGuide(eventType = "spin", recentOutcome = "steady") {
         worldStage: (state.spinCount % 5) + 1,
         recentOutcome,
       }),
+      signal: controller.signal,
     });
+    
+    clearTimeout(timeoutId);
+    
     if (!response.ok) {
-      dom.aiGuideText.textContent = fallback;
-      return;
+      return; // Keep fallback message
     }
+    
     const payload = await response.json();
     const message = String(payload?.message || "").trim();
-    dom.aiGuideText.textContent = message.length ? (message.includes("Lynne") ? message : `Lynne, ${message}`) : fallback;
-  } catch {
-    dom.aiGuideText.textContent = fallback;
+    
+    if (message.length) {
+      const formattedMessage = message.includes("Lynne") ? message : `Lynne, ${message}`;
+      // Smooth transition to new message
+      dom.aiGuideText.style.opacity = "0";
+      setTimeout(() => {
+        dom.aiGuideText.textContent = formattedMessage;
+        dom.aiGuideText.style.opacity = "1";
+      }, 200);
+    }
+  } catch (error) {
+    // Keep fallback message - already set above
+    console.log("AI guide update failed, using fallback:", error.message);
   }
 }
 
