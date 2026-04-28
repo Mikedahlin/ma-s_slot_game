@@ -396,6 +396,8 @@ function getColumnSymbols(grid, colIndex) {
 
 function createSymbolVisual(symbolId, { compact = false } = {}) {
   const symbol = SYMBOL_BY_ID[symbolId] || SYMBOL_BY_ID.star;
+  
+  // Create image element for user's paid downloaded images
   const img = document.createElement("img");
   img.className = "symbol-art";
   img.src = symbol.image;
@@ -405,7 +407,10 @@ function createSymbolVisual(symbolId, { compact = false } = {}) {
   img.style.width = compact ? "36px" : "100%";
   img.style.height = compact ? "36px" : "100%";
   img.style.objectFit = "contain";
+  img.style.borderRadius = "4px";
+  img.style.boxShadow = "0 2px 8px rgba(0,0,0,0.3)";
 
+  // Simple text fallback if image fails to load
   const fallback = document.createElement("div");
   fallback.className = "symbol-fallback";
   fallback.textContent = symbol.short;
@@ -418,6 +423,9 @@ function createSymbolVisual(symbolId, { compact = false } = {}) {
   fallback.style.width = compact ? "36px" : "100%";
   fallback.style.height = compact ? "36px" : "100%";
   fallback.style.textShadow = "0 2px 4px rgba(0,0,0,0.5)";
+  fallback.style.border = "2px solid #FFD700";
+  fallback.style.borderRadius = "4px";
+  fallback.style.background = "linear-gradient(135deg, #2a2a3e 0%, #1a1a2e 100%)";
 
   img.addEventListener("error", () => {
     img.replaceWith(fallback);
