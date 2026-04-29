@@ -294,9 +294,10 @@ body::after {
 }
 
 .symbol-art {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
+  width: 92%;
+  height: 92%;
+  object-fit: cover;
+  object-position: center;
   border-radius: 4px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.3);
   transition: transform 0.2s ease;
@@ -403,6 +404,11 @@ body::after {
   backdrop-filter: blur(2px);
 }
 
+.bonus-overlay.mega-777-mode {
+  padding: 0;
+  background: rgba(0, 0, 0, 0.92);
+}
+
 .bonus-card {
   width: min(860px, 96vw);
   border: 1px solid var(--line);
@@ -412,8 +418,62 @@ body::after {
   box-shadow: 0 14px 34px rgba(0, 0, 0, 0.52);
 }
 
+.bonus-overlay.mega-777-mode .bonus-card {
+  width: 100vw;
+  max-width: none;
+  height: 100vh;
+  border-radius: 0;
+  border: 0;
+  padding: 0;
+  overflow: hidden;
+  background: #000;
+  box-shadow: none;
+}
+
 #bonusBody {
   margin: 0.74rem 0;
+}
+
+.bonus-overlay.mega-777-mode #bonusTitle,
+.bonus-overlay.mega-777-mode #bonusIntro {
+  display: none;
+}
+
+.bonus-overlay.mega-777-mode #bonusBody {
+  margin: 0;
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.mega-777-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  display: block;
+}
+
+.mega-777-caption {
+  position: absolute;
+  left: 50%;
+  bottom: 14vh;
+  transform: translateX(-50%);
+  color: #fff5c6;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  font-size: clamp(1.1rem, 4vw, 2.3rem);
+  text-shadow: 0 0 18px rgba(0, 0, 0, 0.9);
+  padding: 0.45rem 0.8rem;
+  border-radius: 0.55rem;
+  background: rgba(0, 0, 0, 0.38);
+}
+
+.bonus-overlay.mega-777-mode #bonusContinueBtn {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  z-index: 3;
 }
 
 .hidden {

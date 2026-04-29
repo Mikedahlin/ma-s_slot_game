@@ -20,6 +20,18 @@ const SYMBOLS = [
 ];
 
 const SYMBOL_BY_ID = Object.fromEntries(SYMBOLS.map((symbol) => [symbol.id, symbol]));
+const SYMBOL_FOCAL_POINTS = {
+  seven: "50% 50%",
+  gem: "50% 52%",
+  coin: "50% 54%",
+  cherry: "50% 56%",
+  clover: "50% 56%",
+  star: "50% 55%",
+  bonus: "50% 58%",
+  bell: "50% 56%",
+  bar: "50% 54%",
+  orange: "50% 56%",
+};
 const BASE_SYMBOL_WEIGHTS = {
   seven: 8,
   gem: 10,
@@ -86,6 +98,7 @@ const BONUS_BANNERS = {
   wheel: "assets/images/bonus-wheel.jpg",
   freespins: "assets/images/bonus-match.jpg",
 };
+const MEGA_777_IMAGE = "assets/images/777-slot.png";
 
 const PAYLINES = [
   [0, 0, 0, 0, 0],
@@ -404,9 +417,10 @@ function createSymbolVisual(symbolId, { compact = false } = {}) {
   img.alt = symbol.label;
   img.loading = "eager";
   img.decoding = "async";
-  img.style.width = compact ? "36px" : "100%";
-  img.style.height = compact ? "36px" : "100%";
-  img.style.objectFit = "contain";
+  img.style.width = compact ? "36px" : "92%";
+  img.style.height = compact ? "36px" : "92%";
+  img.style.objectFit = "cover";
+  img.style.objectPosition = SYMBOL_FOCAL_POINTS[symbolId] || "50% 52%";
   img.style.borderRadius = "4px";
   img.style.boxShadow = "0 2px 8px rgba(0,0,0,0.3)";
 
@@ -495,7 +509,7 @@ async function animateColumnStop(colIndex, finalSymbols) {
   await nextFrame();
   await nextFrame();
 
-  const duration = 1150 + colIndex * 230;
+  const duration = 1180 + Math.floor(Math.random() * 180);
   view.track.style.transition = `transform ${duration}ms cubic-bezier(0.12, 0.8, 0.2, 1)`;
   view.track.style.transform = `translateY(-${rollLength * rowHeight}px)`;
   await delay(duration + 30);
@@ -508,6 +522,20 @@ async function animateColumnStop(colIndex, finalSymbols) {
   view.track.style.transition = "none";
   view.track.style.transform = "translateY(0px)";
   view.column.classList.toggle("bonus-hit", finalSymbols.includes("bonus"));
+}
+
+async function spinAllReels(grid, { staggerMs = 120 } = {}) {
+  const jobs = [];
+  for (let col = 0; col < COLS; col += 1) {
+    jobs.push(
+      (async () => {
+        await delay(col * staggerMs);
+        await animateColumnStop(col, getColumnSymbols(grid, col));
+        audioManager.play("reelStop");
+      })()
+    );
+  }
+  await Promise.all(jobs);
 }
 
 function renderPayoutTable() {
@@ -539,6 +567,7 @@ function evaluateGrid(grid) {
   const bet = getCurrentBet();
   let totalLineWin = 0;
   const lineDetails = [];
+  let mega777Hit = false;
 
   PAYLINES.forEach((line, lineIndex) => {
     const firstSymbolId = grid[line[0]][0];
@@ -557,11 +586,14 @@ function evaluateGrid(grid) {
       const win = bet * mult;
       totalLineWin += win;
       lineDetails.push(`Line ${lineIndex + 1}: ${firstSymbol.label} x${count}`);
+      if (firstSymbol.id === "seven" && count === 5) {
+        mega777Hit = true;
+      }
     }
   });
 
   const bonusCount = grid.flat().filter((id) => id === "bonus").length;
-  return { totalLineWin, lineDetails, bonusCount };
+  return { totalLineWin, lineDetails, bonusCount, mega777Hit };
 }
 
 function maybeLaunchCoinBurst(count = 14) {
@@ -637,11 +669,51 @@ function openBonusOverlay(title, intro) {
 function closeBonusOverlay() {
   dom.bonusOverlay.classList.add("hidden");
   dom.bonusOverlay.setAttribute("aria-hidden", "true");
+  dom.bonusOverlay.classList.remove("mega-777-mode");
   dom.bonusBody.innerHTML = "";
   state.activeBonus = null;
   state.controlsLocked = false;
   updateHUD();
   setMessage("Bonus complete. Spin again.");
+}
+
+function closeMega777Overlay() {
+  dom.bonusOverlay.classList.add("hidden");
+  dom.bonusOverlay.setAttribute("aria-hidden", "true");
+  dom.bonusOverlay.classList.remove("mega-777-mode");
+  dom.bonusBody.innerHTML = "";
+  dom.bonusContinueBtn.classList.add("hidden");
+  state.activeBonus = null;
+  state.controlsLocked = false;
+  updateHUD();
+}
+
+function showMega777Overlay(payout) {
+  return new Promise((resolve) => {
+    openBonusOverlay("777 MEGA BONUS!", `You hit the biggest bonus! ${formatCash(payout)}`);
+    dom.bonusOverlay.classList.add("mega-777-mode");
+    dom.bonusBody.innerHTML = "";
+
+    const hero = document.createElement("img");
+    hero.className = "mega-777-image";
+    hero.src = MEGA_777_IMAGE;
+    hero.alt = "777 mega jackpot celebration";
+    hero.loading = "eager";
+    hero.decoding = "async";
+    dom.bonusBody.appendChild(hero);
+
+    const caption = document.createElement("div");
+    caption.className = "mega-777-caption";
+    caption.textContent = `MEGA 777 JACKPOT ${formatCash(payout)}`;
+    dom.bonusBody.appendChild(caption);
+
+    dom.bonusContinueBtn.classList.remove("hidden");
+    dom.bonusContinueBtn.textContent = "Continue";
+    dom.bonusContinueBtn.onclick = () => {
+      closeMega777Overlay();
+      resolve();
+    };
+  });
 }
 
 function finishBonus(baseReward, summaryText) {
@@ -804,10 +876,7 @@ async function launchFreeSpinsBonus() {
   for (let spinIndex = 1; spinIndex <= freeSpins; spinIndex += 1) {
     detail.textContent = `Free spin ${spinIndex} of ${freeSpins}`;
     const grid = createRandomGrid({ includeBonus: false });
-    for (let col = 0; col < COLS; col += 1) {
-      await animateColumnStop(col, getColumnSymbols(grid, col));
-      audioManager.play("reelStop");
-    }
+    await spinAllReels(grid, { staggerMs: 100 });
     state.grid = grid;
     renderStaticBoard();
     const outcome = evaluateGrid(grid);
@@ -985,10 +1054,7 @@ async function spin() {
   const nextGrid = createRandomGrid({ forceBonus, includeBonus: true });
 
   try {
-    for (let col = 0; col < COLS; col += 1) {
-      await animateColumnStop(col, getColumnSymbols(nextGrid, col));
-      audioManager.play("reelStop");
-    }
+    await spinAllReels(nextGrid, { staggerMs: 130 });
 
     state.grid = nextGrid;
     renderStaticBoard();
@@ -997,6 +1063,7 @@ async function spin() {
     const result = evaluateGrid(nextGrid);
     const payout = roundTo100(result.totalLineWin);
     const bonusTriggered = result.bonusCount >= 3;
+    let mega777Shown = false;
 
     if (payout > 0) {
       state.balance += payout;
@@ -1018,6 +1085,17 @@ async function spin() {
       maybeLaunchCoinBurst(jackpot.tier === "grand" ? 80 : 48);
       triggerCelebration(jackpot.tier === "grand" ? "mega" : "big");
       audioManager.play("jackpot");
+      if (jackpot.tier === "grand") {
+        await showMega777Overlay(jackpot.payout);
+        setMessage(`GRAND JACKPOT! ${formatCash(jackpot.payout)}`);
+        mega777Shown = true;
+      }
+    }
+
+    if (result.mega777Hit && !mega777Shown) {
+      await showMega777Overlay(payout);
+      setMessage(`MEGA 777 HIT! ${formatCash(payout)}`);
+      mega777Shown = true;
     }
 
     if (bonusTriggered) {
