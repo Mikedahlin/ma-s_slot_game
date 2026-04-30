@@ -21,10 +21,50 @@
             <span>Game</span>
             <select id="gameSelect"></select>
           </label>
+          <div class="sound-controls">
+            <button id="muteBtn" class="chip-btn" type="button" aria-pressed="false">Sound: On</button>
+            <label class="volume-wrap" for="volumeSlider">
+              <span>Volume</span>
+              <input id="volumeSlider" type="range" min="0" max="100" value="85" />
+            </label>
+          </div>
         </div>
       </header>
 
-      <section class="dashboard"></section>
+      <section class="dashboard">
+        <article class="meter-card">
+          <p class="meter-label">Balance</p>
+          <p id="balanceValue" class="meter-value">$250,000</p>
+        </article>
+        <article class="meter-card">
+          <p class="meter-label">Bet</p>
+          <p id="betValue" class="meter-value">$2,500</p>
+        </article>
+        <article class="meter-card">
+          <p class="meter-label">Last Win</p>
+          <p id="lastWinValue" class="meter-value">$0</p>
+        </article>
+        <article class="meter-card meter-mini">
+          <p class="meter-label">Mini Jackpot</p>
+          <p id="miniJackpotValue" class="meter-value">$0</p>
+        </article>
+        <article class="meter-card meter-major">
+          <p class="meter-label">Major Jackpot</p>
+          <p id="majorJackpotValue" class="meter-value">$0</p>
+        </article>
+        <article class="meter-card meter-grand">
+          <p class="meter-label">Grand Jackpot</p>
+          <p id="grandJackpotValue" class="meter-value">$0</p>
+        </article>
+        <article class="meter-card">
+          <p class="meter-label">Daily Streak</p>
+          <p id="dailyStreakValue" class="meter-value">Day 1</p>
+        </article>
+        <article class="meter-card">
+          <p class="meter-label">Bonus Meter</p>
+          <p id="bonusMeterValue" class="meter-value">0 / 10</p>
+        </article>
+      </section>
 
       <section class="cabinet">
         <div class="cabinet-lights" aria-hidden="true"></div>
@@ -33,8 +73,22 @@
           <div id="reelStrip" class="reel-strip" aria-live="polite"></div>
         </div>
         <div class="controls-row">
+          <button id="betDownBtn" class="chip-btn" type="button">Bet -</button>
           <button id="spinBtn" class="spin-btn" type="button">SPIN</button>
+          <button id="betUpBtn" class="chip-btn" type="button">Bet +</button>
         </div>
+      </section>
+
+      <section class="info-panels">
+        <article class="panel">
+          <h2>Payout Table</h2>
+          <p>Line wins pay left-to-right on 5 paylines (3 rows + 2 diagonals).</p>
+          <ul id="payoutTable"></ul>
+        </article>
+        <article class="panel">
+          <h2>Bonus Rounds</h2>
+          <ul id="bonusRoundList"></ul>
+        </article>
       </section>
 
       <section id="bonusOverlay" class="bonus-overlay hidden" aria-hidden="true">
@@ -42,6 +96,7 @@
           <h2 id="bonusTitle">Bonus Round</h2>
           <p id="bonusIntro"></p>
           <div id="bonusBody"></div>
+          <button id="bonusContinueBtn" class="chip-btn hidden" type="button">Continue</button>
         </div>
       </section>
     </main>
