@@ -1,0 +1,66 @@
+/* Emergency visual stabilizer. Keeps original game code, fixes broken-looking reel layout. */
+
+.reel-strip {
+  align-items: stretch;
+}
+
+.reel-window {
+  height: clamp(132px, 18vw, 210px) !important;
+}
+
+.reel-track {
+  height: 100%;
+}
+
+.symbol-cell {
+  height: 100% !important;
+  min-height: 100% !important;
+  border-bottom: 0 !important;
+  overflow: hidden;
+}
+
+.symbol-cell:not(:nth-child(2)) {
+  display: none !important;
+}
+
+.symbol-art {
+  width: 94% !important;
+  height: 94% !important;
+  object-fit: contain !important;
+  object-position: center !important;
+  border-radius: 10px !important;
+  box-shadow: none !important;
+  filter: saturate(1.08) contrast(1.05);
+}
+
+.reel-column.spinning .symbol-art {
+  filter: saturate(1.08) contrast(1.05) !important;
+}
+
+.reel-column {
+  min-width: 0;
+}
+
+.reel-shell {
+  overflow: hidden;
+}
+
+.sound-controls {
+  display: flex;
+}
+
+@media (max-width: 820px) {
+  .reel-strip {
+    grid-template-columns: repeat(5, minmax(58px, 1fr));
+    gap: 0.18rem;
+  }
+
+  .reel-window {
+    height: clamp(92px, 18vw, 126px) !important;
+  }
+
+  .symbol-art {
+    width: 96% !important;
+    height: 96% !important;
+  }
+}
