@@ -1,108 +1,152 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Lynne's Vegas Slots</title>
-    <link rel="stylesheet" href="./styles.css" />
-    <link rel="stylesheet" href="./ui-clean.css" />
-  </head>
-  <body class="clean-v2">
-    <main class="casino">
-      <header class="topbar">
-        <div class="topbar-left">
-          <p class="kicker">Vegas Floor Collection</p>
-          <h1 id="themeTitle">Lynne's Starlight Jackpot</h1>
-          <p id="themeSubtitle" class="subtitle">Premium multi-game slot cabinet with live bonuses</p>
-          <p id="aiGuideText" class="guide-text">Lynne, let's warm up with a few steady spins.</p>
-        </div>
-        <div class="topbar-right">
-          <label class="game-select-wrap" for="gameSelect">
-            <span>Game</span>
-            <select id="gameSelect"></select>
-          </label>
-          <div class="sound-controls">
-            <button id="muteBtn" class="chip-btn" type="button" aria-pressed="false">Sound: On</button>
-            <label class="volume-wrap" for="volumeSlider">
-              <span>Volume</span>
-              <input id="volumeSlider" type="range" min="0" max="100" value="85" />
-            </label>
-          </div>
-        </div>
-      </header>
 
-      <section class="dashboard">
-        <article class="meter-card">
-          <p class="meter-label">Balance</p>
-          <p id="balanceValue" class="meter-value">$250,000</p>
-        </article>
-        <article class="meter-card">
-          <p class="meter-label">Bet</p>
-          <p id="betValue" class="meter-value">$2,500</p>
-        </article>
-        <article class="meter-card">
-          <p class="meter-label">Last Win</p>
-          <p id="lastWinValue" class="meter-value">$0</p>
-        </article>
-        <article class="meter-card meter-mini">
-          <p class="meter-label">Mini Jackpot</p>
-          <p id="miniJackpotValue" class="meter-value">$0</p>
-        </article>
-        <article class="meter-card meter-major">
-          <p class="meter-label">Major Jackpot</p>
-          <p id="majorJackpotValue" class="meter-value">$0</p>
-        </article>
-        <article class="meter-card meter-grand">
-          <p class="meter-label">Grand Jackpot</p>
-          <p id="grandJackpotValue" class="meter-value">$0</p>
-        </article>
-        <article class="meter-card">
-          <p class="meter-label">Daily Streak</p>
-          <p id="dailyStreakValue" class="meter-value">Day 1</p>
-        </article>
-        <article class="meter-card">
-          <p class="meter-label">Bonus Meter</p>
-          <p id="bonusMeterValue" class="meter-value">0 / 10</p>
-        </article>
-      </section>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Basic Slot Machine Game (WACKY WILDS AND FREE SPINS!!!!)</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="help-modal.css">
 
-      <section class="cabinet">
-        <div class="cabinet-lights" aria-hidden="true"></div>
-        <p id="slotMessage" class="slot-message">Press SPIN to start.</p>
-        <div class="reel-shell">
-          <div id="reelStrip" class="reel-strip" aria-live="polite"></div>
+</head>
+
+<body>
+    <!-- Toast Notification Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <div class="game-container">
+        <h1>🎰 Basic Slot Machine Game 🎰</h1>
+
+        <div class="settings-panel">
+            <div class="theme-controls">
+                <label for="themeSelector">Game Theme:</label>
+                <select id="themeSelector" onchange="changeGameTheme(this.value)">
+                    <option value="classic">🍒 Classic Fruits</option>
+                    <option value="ocean">🌊 Ocean Adventure</option>
+                    <option value="space">🚀 Space Explorer</option>
+                    <option value="animals">🦁 Wild Animals</option>
+                    <option value="food">🍕 Delicious Treats</option>
+                    <option value="gems">💎 Precious Gems</option>
+                    <option value="cards">🃏 Card Royale</option>
+                    <option value="chess">♟️ Chess Masters</option>
+                    <option value="monsters">👻 Monster Mayhem</option>
+                    <option value="wolves">🐺 Wolf Pack</option>
+                    <option value="egypt">🧞 Ancient Egypt</option>
+                    <option value="music">🎵 Music Beats</option>
+                    <option value="fantasy">✨ Fantasy Realm</option>
+                    <option value="astrology">♈ Astrology Signs</option>
+                    <option value="weather">☀️ Weather Forecast</option>
+                    <option value="planets">🌍 Solar System</option>
+                    <option value="emoticons">😊 Emoji Faces</option>
+                    <option value="sports">⚽ Sports Arena</option>
+                    <option value="tech">📱 Tech Gadgets</option>
+                    <option value="camping">⛺ Wilderness Camp</option>
+                </select>
+            </div>
+
+            <div class="volume-controls">
+                <div>
+                    <label for="bgVolumeSlider">BG Music: <span id="bgVolumeValue">30</span>%</label>
+                    <input type="range" id="bgVolumeSlider" min="0" max="1" step="0.01"
+                        onchange="setBgMusicVolume(this.value)" oninput="updateBgVolumeValue(this.value)">
+                </div>
+                <div>
+                    <label for="sfxVolumeSlider">Sound FX: <span id="sfxVolumeValue">60</span>%</label>
+                    <input type="range" id="sfxVolumeSlider" min="0" max="1" step="0.01" onchange="setSfxVolume(this.value)"
+                        oninput="updateSfxVolumeValue(this.value)">
+                </div>
+            </div>
         </div>
-        <div class="controls-row">
-          <button id="betDownBtn" class="chip-btn" type="button">Bet -</button>
-          <button id="spinBtn" class="spin-btn" type="button">SPIN</button>
-          <button id="betUpBtn" class="chip-btn" type="button">Bet +</button>
+
+        <div class="coin-display">
+            Coins: <span id="coinCount">$100.00</span>
         </div>
-      </section>
 
-      <section class="info-panels">
-        <article class="panel">
-          <h2>Payout Table</h2>
-          <p>Line wins pay left-to-right on 5 paylines (3 rows + 2 diagonals).</p>
-          <ul id="payoutTable"></ul>
-        </article>
-        <article class="panel">
-          <h2>Bonus Rounds</h2>
-          <ul id="bonusRoundList"></ul>
-        </article>
-      </section>
-
-      <section id="bonusOverlay" class="bonus-overlay hidden" aria-hidden="true">
-        <div class="bonus-card">
-          <h2 id="bonusTitle">Bonus Round</h2>
-          <p id="bonusIntro"></p>
-          <div id="bonusBody"></div>
-          <button id="bonusContinueBtn" class="chip-btn hidden" type="button">Continue</button>
+        <div class="free-spins-display" id="freeSpinsDisplay" style="display: none;">
+            <!-- Content will be set by JavaScript -->
         </div>
-      </section>
-    </main>
 
-    <div id="fxLayer" class="fx-layer" aria-hidden="true"></div>
-    <script src="./script.js"></script>
-    <script src="./slot-hotfix.js"></script>
-  </body>
+        <div class="bet-controls">
+            <button class="bet-button" onclick="changeBet(-1)">-</button>
+            <div class="bet-display">Bet: <span id="betAmount">$0.02</span></div>
+            <button class="bet-button" onclick="changeBet(1)">+</button>
+        </div>
+
+        <div class="payline-controls">
+            <button class="payline-button" onclick="changePaylines(-1)">-</button>
+            <div class="payline-display">Lines: <span id="paylineCount">1</span>/<span id="maxPaylines">9</span></div>
+            <button class="payline-button" onclick="changePaylines(1)">+</button>
+        </div>
+        <div class="total-bet-display">
+            Total Bet: <span id="totalBet">10</span> coins
+        </div>
+        <div class="win-rate-controls">
+            <label for="winRateSlider" class="win-rate-label">Win Rate: <span id="winRateValue">50</span>%</label>
+            <input type="range" id="winRateSlider" min="0" max="100" value="50" class="win-rate-slider"
+                onchange="changeWinRate(this.value)" oninput="changeWinRate(this.value)">
+            <div class="win-rate-labels">
+                <span>Hard (0%)</span>
+                <span>Easy (100%)</span>
+            </div>
+        </div>
+
+        <!--div class="wild-controls">
+            <label for="wildRaritySlider" class="win-rate-label">Wild Rarity: <span id="wildRarityValue">5</span>%</label>
+            <input type="range" id="wildRaritySlider" min="0" max="20" value="5" step="1"
+                   class="win-rate-slider" onchange="changeWildRarity(this.value)" oninput="changeWildRarity(this.value)">
+            <div class="win-rate-labels">
+                <span>No Wilds (0%)</span>
+                <span>Many Wilds (20%)</span>
+            </div>
+        </div-->
+
+        <div class="min-win-controls">
+            <label for="minWinSlider" class="win-rate-label">Minimum Symbols For Win: <span id="minWinValue">3</span>
+                symbols</label>
+            <input type="range" id="minWinSlider" min="2" max="6" value="3" step="1" class="win-rate-slider"
+                onchange="changeMinWinLength(this.value)" oninput="changeMinWinLength(this.value)">
+            <div class="win-rate-labels">
+                <span>Easy (2)</span>
+                <span>Hard (6)</span>
+            </div>
+        </div>
+
+        <canvas id="slotCanvas" width="600" height="400"></canvas>
+
+        <div class="controls">
+            <button class="spin-button" id="spinButton" onclick="spin()">SPIN!</button>
+            <button class="reset-button" onclick="resetCoins()">Reset Game</button>
+            <button class="fullscreen-button" id="fullscreenButton" onclick="toggleFullscreen()">Fullscreen</button>
+            <!--button class="image-toggle-button" id="imageToggleButton" onclick="toggleImages()">Use Images</button-->
+
+            <!-- Coin management buttons for fullscreen -->
+            <div class="fullscreen-coin-controls" style="display: none;">
+                <button class="bet-button" onclick="addCoins(100)">Add $100</button>
+                <button class="bet-button" onclick="addCoins(500)">Add $500</button>
+                <button class="bet-button" onclick="addCoins(1000)">Add $1000</button>
+            </div>
+        </div>
+
+        <div class="config-controls">
+            <h3>Quick Configurations:</h3>
+            <div class="config-buttons">
+                <button class="config-button" onclick="reconfigure(3, 3)">3x3 Grid</button>
+                <button class="config-button" onclick="reconfigure(5, 3)">5x3 Classic</button>
+                <button class="config-button" onclick="reconfigure(5, 4)">5x4 Extended</button>
+                <button class="config-button" onclick="reconfigure(6, 4)">6x4 Mega</button>
+            </div>
+        </div>
+    </div>
+
+    <!--div id="fullscreenBetControls" class="fullscreen-bet-controls-container">
+        <span>Bet: </span>
+        <button id="fsDecreaseBetBtn" class="fs-bet-btn">-</button>
+        <span id="fsBetAmountDisplay">$0.25</span>
+        <button id="fsIncreaseBetBtn" class="fs-bet-btn">+</button>
+    </div-->
+
+    <script src="help-modal.js"></script>
+    <script src="slot-machine.js"></script>
+</body>
+
 </html>

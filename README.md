@@ -1,51 +1,42 @@
-# Lynne's AI Slot Deluxe
+# Ma's Slot — Lynnes Buffalo Base
 
-Browser slot game with bonus rounds, optional OpenAI-powered story/theme APIs (server-side), and offline fallbacks.
+This branch imports the existing `Mikedahlin/Lynnes-Buffalo-Slot` project into `ma-s_slot_game` and makes it runnable as a normal app instead of opening `index.html` from Downloads.
 
-**Repository:** [github.com/Mikedahlin/ma-s_slot_game](https://github.com/Mikedahlin/ma-s_slot_game)
+## Important reality check
 
-**Deploy to GitHub + Railway:** see **[DEPLOY.md](./DEPLOY.md)** for step-by-step instructions, environment variables, and GitHub Pages + split API setup.
+The source repo includes audio files, but it does not include an `images/` folder. The current code has image mode disabled:
 
-## Steel Browser (Railway AI Agents)
+```js
+this.useImages = false;
+```
 
-This repo includes a server-side Steel browser bridge for agent workflows:
+That means the game currently uses emoji/text symbols, not real PNG reel art.
 
-- `GET /api/agent/steel/health`
-- `POST /api/agent/steel/navigate`
-
-Required environment variable:
-
-- `STEEL_API_KEY`
-
-Optional:
-
-- `STEEL_PROJECT_ID`
-- `STEEL_WS_ENDPOINT` (defaults to `wss://connect.steel.dev`)
+## Run locally
 
 ```bash
 npm install
-cp .env.example .env   # add OPENAI_API_KEY for local AI
-npm run dev              # http://localhost:3000
+npm start
 ```
 
-## Desktop App (Downloadable Windows App)
+Open:
 
-This project can now be packaged as a desktop app using Electron.
+```text
+http://localhost:3000
+```
 
-### Run as Desktop App (local)
+## Audit
 
 ```bash
-npm install
-npm run desktop
+npm run audit:assets
 ```
 
-### Build a Windows Installer (.exe)
+## Railway
+
+Start command:
 
 ```bash
-npm install
-npm run dist:win
+npm start
 ```
 
-Build output is written to:
-
-- `desktop-dist/` (installer and packaged app artifacts)
+The server uses `process.env.PORT || 3000`.

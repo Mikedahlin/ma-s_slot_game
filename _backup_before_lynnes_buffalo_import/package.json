@@ -1,0 +1,59 @@
+{
+  "name": "lynnes-ai-slot-deluxe",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "electron/main.cjs",
+  "description": "A premium AI-ready slot machine for Lynne with evolving themes, bonus rounds, and secure OpenAI server-side calls.",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "node -e \"console.log('No frontend build needed; using server.js directly.')\"",
+    "dev": "node --watch server.js",
+    "start": "node server.js",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
+    "desktop": "electron .",
+    "pack:desktop": "electron-builder --dir",
+    "dist:win": "electron-builder --win nsis"
+  },
+  "dependencies": {
+    "dotenv": "^16.6.1",
+    "express": "^5.1.0",
+    "openai": "^5.12.2",
+    "playwright-core": "latest"
+  },
+  "devDependencies": {
+    "@playwright/test": "latest",
+    "electron": "latest",
+    "electron-builder": "latest"
+  },
+  "build": {
+    "appId": "com.lynne.aislotdeluxe",
+    "productName": "Lynne AI Slot Deluxe",
+    "asar": true,
+    "directories": {
+      "output": "desktop-dist"
+    },
+    "files": [
+      "index.html",
+      "styles.css",
+      "script.js",
+      "server.js",
+      "config.deploy.js",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    }
+  }
+}
