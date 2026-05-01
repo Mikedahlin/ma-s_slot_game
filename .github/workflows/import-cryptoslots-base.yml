@@ -1,0 +1,266 @@
+name: Import CryptoSlots Base
+
+on:
+  push:
+    branches:
+      - rebuild/cryptoslots-base
+    paths:
+      - .github/workflows/import-cryptoslots-base.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  import-cryptoslots:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout target repo
+        uses: actions/checkout@v4
+        with:
+          ref: rebuild/cryptoslots-base
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Clone exact source repo
+        run: |
+          rm -rf /tmp/cryptoslots-source
+          git clone --depth 1 https://github.com/GalaxysHub/CryptoSlots.git /tmp/cryptoslots-source
+
+      - name: Replace app with CryptoSlots working files
+        run: |
+          set -e
+          mkdir -p _backup_before_cryptoslots_import
+          for item in index.html public package.json server.js README.md DEPLOY.md vercel.json config.deploy.js script.js styles.css slot-hotfix.js lynnes-luxe-lights electron tests playwright.config.*; do
+            if [ -e "$item" ]; then
+              mv "$item" _backup_before_cryptoslots_import/ || true
+            fi
+          done
+
+          cp -R /tmp/cryptoslots-source/index.html ./index.html
+          cp -R /tmp/cryptoslots-source/public ./public
+          if [ -f /tmp/cryptoslots-source/vercel.json ]; then cp /tmp/cryptoslots-source/vercel.json ./vercel.json; fi
+
+          cat > package.json <<'EOF'
+          {
+            "name": "mas-slot-cryptoslots-base",
+            "version": "1.0.0",
+            "private": true,
+            "type": "module",
+            "description": "Ma's Slot rebuilt from the working CryptoSlots HTML5 canvas base with original assets preserved.",
+            "engines": {
+              "node": ">=20"
+            },
+            "scripts": {
+              "start": "node server.js",
+              "dev": "node server.js",
+              "build": "node -e \"console.log('Static CryptoSlots build: no bundling required.')\"",
+              "audit:assets": "node scripts/audit-assets.mjs"
+            }
+          }
+          EOF
+
+          cat > server.js <<'EOF'
+          import { createServer } from 'node:http';
+          import { readFile } from 'node:fs/promises';
+          import { createReadStream, existsSync, statSync } from 'node:fs';
+          import path from 'node:path';
+          import { fileURLToPath } from 'node:url';
+
+          const __filename = fileURLToPath(import.meta.url);
+          const __dirname = path.dirname(__filename);
+          const PORT = Number(process.env.PORT || 3000);
+
+          const MIME_TYPES = {
+            '.html': 'text/html; charset=utf-8',
+            '.js': 'text/javascript; charset=utf-8',
+            '.css': 'text/css; charset=utf-8',
+            '.json': 'application/json; charset=utf-8',
+            '.png': 'image/png',
+            '.jpg': 'image/jpeg',
+            '.jpeg': 'image/jpeg',
+            '.gif': 'image/gif',
+            '.svg': 'image/svg+xml',
+            '.ico': 'image/x-icon',
+            '.wav': 'audio/wav',
+            '.mp3': 'audio/mpeg',
+            '.ogg': 'audio/ogg',
+            '.ttf': 'font/ttf',
+            '.otf': 'font/otf',
+            '.woff': 'font/woff',
+            '.woff2': 'font/woff2'
+          };
+
+          function safeResolve(urlPath) {
+            const cleanPath = decodeURIComponent(urlPath.split('?')[0]).replace(/^\/+/, '');
+            const requested = cleanPath === '' ? 'index.html' : cleanPath;
+            const resolved = path.resolve(__dirname, requested);
+            if (!resolved.startsWith(__dirname)) return null;
+            return resolved;
+          }
+
+          const server = createServer(async (req, res) => {
+            if (req.url === '/health') {
+              res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+              res.end(JSON.stringify({ ok: true, app: 'mas-slot-cryptoslots-base' }));
+              return;
+            }
+
+            const filePath = safeResolve(req.url || '/');
+            if (!filePath || !existsSync(filePath) || !statSync(filePath).isFile()) {
+              res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+              res.end('Not found');
+              return;
+            }
+
+            const ext = path.extname(filePath).toLowerCase();
+            res.writeHead(200, { 'Content-Type': MIME_TYPES[ext] || 'application/octet-stream' });
+            createReadStream(filePath).pipe(res);
+          });
+
+          server.listen(PORT, '0.0.0.0', () => {
+            console.log(`Ma's Slot CryptoSlots base running on port ${PORT}`);
+          });
+          EOF
+
+          mkdir -p scripts
+          cat > scripts/audit-assets.mjs <<'EOF'
+          import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
+          import path from 'node:path';
+
+          const root = process.cwd();
+          const requiredDirs = [
+            'public/Pictures/MainTiles',
+            'public/Pictures/backgrounds',
+            'public/Pictures/button',
+            'public/Sounds',
+            'public/CSS',
+            'public/JS'
+          ];
+
+          let failed = false;
+          for (const dir of requiredDirs) {
+            const full = path.join(root, dir);
+            if (!existsSync(full) || !statSync(full).isDirectory()) {
+              console.error(`Missing required asset dir: ${dir}`);
+              failed = true;
+            } else {
+              const count = readdirSync(full).length;
+              console.log(`OK ${dir}: ${count} item(s)`);
+            }
+          }
+
+          const html = readFileSync(path.join(root, 'index.html'), 'utf8');
+          const refs = [...html.matchAll(/(?:src|href)=["']([^"']+)["']/g)].map((m) => m[1]).filter((ref) => !ref.startsWith('http'));
+          for (const ref of refs) {
+            const target = path.join(root, ref.replace(/^\//, ''));
+            if (!existsSync(target)) {
+              console.error(`Missing index.html referenced file: ${ref}`);
+              failed = true;
+            } else {
+              console.log(`OK reference: ${ref}`);
+            }
+          }
+
+          if (failed) process.exit(1);
+          console.log('Asset audit passed.');
+          EOF
+
+          cat > README.md <<'EOF'
+          # Ma's Slot — CryptoSlots Base Rebuild
+
+          This branch restarts `Mikedahlin/ma-s_slot_game` from the working open-source CryptoSlots HTML5 canvas slot base.
+
+          Source base repo:
+          https://github.com/GalaxysHub/CryptoSlots
+
+          ## Rules for this branch
+
+          - Do not restyle yet.
+          - Do not invent asset filenames.
+          - Do not move asset folders until the game is verified working.
+          - Keep the original source asset paths intact first.
+
+          ## Run locally
+
+          ```bash
+          npm install
+          npm start
+          ```
+
+          Open:
+
+          ```text
+          http://localhost:3000
+          ```
+
+          ## Audit assets
+
+          ```bash
+          npm run audit:assets
+          ```
+
+          ## Railway
+
+          Start command:
+
+          ```bash
+          npm start
+          ```
+
+          The server uses `process.env.PORT || 3000`.
+          EOF
+
+          cat > DEPLOY.md <<'EOF'
+          # Railway Deploy Notes
+
+          This is a static HTML5 canvas game served by `server.js`.
+
+          ## Railway settings
+
+          Start command:
+
+          ```bash
+          npm start
+          ```
+
+          Build command:
+
+          ```bash
+          npm run build
+          ```
+
+          ## Health check
+
+          ```text
+          /health
+          ```
+
+          ## Important
+
+          This branch intentionally preserves the original CryptoSlots paths:
+
+          - `public/Pictures/MainTiles/`
+          - `public/Pictures/backgrounds/`
+          - `public/Pictures/button/`
+          - `public/Sounds/`
+          - `public/CSS/`
+          - `public/JS/`
+
+          Do not rename these folders until the game is verified working in production.
+          EOF
+
+      - name: Audit asset folders and index references
+        run: |
+          node scripts/audit-assets.mjs
+
+      - name: Commit imported base
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Import working CryptoSlots base with original assets"
+            git push origin rebuild/cryptoslots-base
+          fi
