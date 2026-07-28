@@ -3,3 +3,8 @@ node_modules
 npm-debug.log*
 desktop-dist
 dist
+
+# local tooling
+.claude
+CLAUDE.md
+AGENTS.md
