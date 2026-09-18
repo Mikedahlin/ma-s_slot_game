@@ -411,6 +411,9 @@ body::after {
 
 .bonus-card {
   width: min(860px, 96vw);
+  max-height: calc(100vh - 2rem);
+  max-height: calc(100dvh - 2rem);
+  overflow-y: auto;
   border: 1px solid var(--line);
   border-radius: 12px;
   background: linear-gradient(180deg, #1a2739, #111b2a);
@@ -518,6 +521,11 @@ body::after {
   width: min(430px, 100%);
   margin: 0 auto 0.7rem;
   position: relative;
+}
+
+.wheel-shell,
+.wheel-shell * {
+  pointer-events: none;
 }
 
 .wheel-pointer {

@@ -13,9 +13,12 @@ export default defineConfig({
   use: {
     baseURL: testBaseUrl,
     trace: "on-first-retry",
+    launchOptions: {
+      executablePath: process.env.PLAYWRIGHT_CHROME_PATH || "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+    },
   },
   webServer: {
-    command: "npm run start",
+    command: "node server.js",
     url: `${testBaseUrl}/health`,
     reuseExistingServer: !process.env.CI,
     env: {
