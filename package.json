@@ -9,9 +9,11 @@
     "node": ">=20"
   },
   "scripts": {
-    "build": "node -e \"console.log('No frontend build needed; using server.js directly.')\"",
+    "build": "node scripts/build-static.mjs",
+    "vercel-build": "npm run build && node --test tests/static-assets.test.mjs",
     "dev": "node --watch server.js",
     "start": "node server.js",
+    "test:static": "node --test tests/static-assets.test.mjs",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
