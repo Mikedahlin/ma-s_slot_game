@@ -960,6 +960,7 @@ async function updateAiGuide(eventType = "spin", recentOutcome = "steady") {
   
   // Always show fallback immediately for better UX
   dom.aiGuideText.textContent = fallback;
+  if (window.SLOT_STATIC) return;
   
   // Try AI with timeout and error handling
   try {
@@ -1006,6 +1007,7 @@ async function updateAiGuide(eventType = "spin", recentOutcome = "steady") {
 }
 
 async function maybeRefreshAiTheme() {
+  if (window.SLOT_STATIC) return;
   try {
     const response = await fetch("/api/ai/theme", {
       method: "POST",

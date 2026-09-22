@@ -35,6 +35,8 @@ test('Vercel is configured to deploy the repository root as static output', () =
   assert.equal(config.framework, null);
   assert.equal(config.outputDirectory, 'dist');
   assert.equal(Object.hasOwn(config, 'rewrites'), false, 'static scripts must not be rewritten to index.html');
+  const fallbackRoute = (config.routes || []).some((r) => r?.dest === '/index.html');
+  assert.equal(fallbackRoute, false, 'routes must not contain an SPA fallback to index.html');
 
   const packageJson = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'));
   assert.equal(packageJson.scripts.build, 'node scripts/build-static.mjs');

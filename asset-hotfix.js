@@ -59,17 +59,17 @@
     if (!window.audioManager && typeof audioManager === 'undefined') return;
     const manager = window.audioManager || audioManager;
     manager.filesByEvent = {
-      button: ['assets/audio/button.wav', 'assets/audio/bonus-round-5.wav'],
-      spinStart: ['assets/audio/spin.wav', 'assets/audio/reel-spin.wav'],
-      reelStop: ['assets/audio/reel-stop.wav', 'assets/audio/bonus-round-4.wav'],
-      win: ['assets/audio/win-small.wav', 'assets/audio/casino-win.wav'],
-      bigWin: ['assets/audio/win-big.wav', 'assets/audio/casino-win.wav', 'assets/audio/bonus-round-7.wav'],
-      jackpot: ['assets/audio/win-mega.wav', 'assets/audio/jackpot.wav', 'assets/audio/bonus-round-7.wav'],
-      bonusStart: ['assets/audio/bonus-trigger.wav', 'assets/audio/bonus-round-1.wav'],
+      button: ['assets/audio/bonus-round-5.wav'],
+      spinStart: ['assets/audio/reel-spin.wav'],
+      reelStop: ['assets/audio/bonus-round-4.wav'],
+      win: ['assets/audio/casino-win.wav'],
+      bigWin: ['assets/audio/casino-win.wav', 'assets/audio/bonus-round-7.wav'],
+      jackpot: ['assets/audio/jackpot.wav', 'assets/audio/bonus-round-7.wav'],
+      bonusStart: ['assets/audio/bonus-round-1.wav'],
       bonusReveal: ['assets/audio/bonus-round-2.wav'],
-      bonusSpin: ['assets/audio/bonus-round-3.wav', 'assets/audio/reel-stop.wav'],
+      bonusSpin: ['assets/audio/bonus-round-3.wav'],
       bonusMiss: ['assets/audio/bonus-round-6.wav'],
-      bonusEnd: ['assets/audio/mission-complete.wav', 'assets/audio/bonus-round-7.wav']
+      bonusEnd: ['assets/audio/bonus-round-7.wav']
     };
     const oldPlay = manager.play.bind(manager);
     manager.play = async function patchedPlay(eventName) {
